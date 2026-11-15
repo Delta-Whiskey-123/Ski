@@ -14,7 +14,10 @@
 <div id="hud">
   <button id="btn-pause" aria-label="Pause">II</button>
   <div id="hud-top"></div>
-  <div id="meter" aria-hidden="true"><i id="meter-fill"></i><b id="meter-mark"></b></div>
+  <div id="meter-wrap">
+    <div id="meter" aria-hidden="true"><i id="meter-fill"></i><b id="meter-mark"></b></div>
+    <button id="btn-adrenaline" data-btn="adrenaline" aria-label="Fire adrenaline"></button>
+  </div>
   <div id="hud-speed"><span id="speed-value">0</span><small id="speed-unit">mph</small></div>
   <div id="hud-air"></div>
   <div id="callout"></div>
@@ -25,7 +28,6 @@
 
 <!-- Touch controls: shown on touch devices only. -->
 <div id="touch">
-  <button class="pad" data-btn="adrenaline" id="btn-adrenaline">GO!</button>
   <button class="pad" data-btn="brake" id="btn-brake">BRAKE</button>
   <button class="pad" data-btn="boost" id="btn-boost">BOOST</button>
   <button class="pad big" data-btn="jump" id="btn-jump">JUMP</button>
@@ -38,6 +40,7 @@
       <h1>SUMMIT<br><span>PROTOCOL</span></h1>
       <p>One mountain. One run. Make it count.</p>
       <button class="cta" data-go="mode">PLAY</button>
+      <div><button class="plain" data-settings>Settings</button></div>
     </div>
   </section>
 
@@ -67,8 +70,49 @@
       <h2>Paused</h2>
       <button class="cta" data-act="resume">RESUME</button>
       <button class="plain" data-act="restart">Restart run</button>
+      <button class="plain" data-settings>Settings</button>
       <button class="plain" data-act="quit">Quit to menu</button>
     </div>
+  </section>
+
+  <section class="screen" data-screen="settings" hidden>
+    <header><button class="back" data-back>&lsaquo; Back</button><h2>Settings</h2></header>
+    <div class="settings-body">
+      <h3>Controls</h3>
+      <div class="cards two">
+        <button class="card" data-go="controls-mobile">
+          <div class="icon">&#9757;</div><h3>View controls: Mobile</h3><p>The touch gestures and on-screen buttons.</p>
+        </button>
+        <button class="card" data-go="controls-web">
+          <div class="icon">&#9000;</div><h3>View controls: Web browser</h3><p>The keyboard keys. Change any of them.</p>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="screen" data-screen="controls-mobile" hidden>
+    <header><button class="back" data-go="settings">&lsaquo; Back</button><h2>Mobile controls</h2></header>
+    <div class="gestures">
+      <div class="gesture"><svg viewBox="0 0 60 40"><circle cx="30" cy="22" r="7"/><path d="M18 22H6m0 0 5-5m-5 5 5 5M42 22h12m0 0-5-5m5 5-5 5"/></svg>
+        <b>Carve</b><span>Hold anywhere and drag your thumb left or right. Further is sharper.</span></div>
+      <div class="gesture"><svg viewBox="0 0 60 40"><circle cx="30" cy="20" r="13"/><text x="30" y="24">JUMP</text></svg>
+        <b>Jump</b><span>Hold JUMP to crouch, release at the lip to pop. Longer hold, higher pop.</span></div>
+      <div class="gesture"><svg viewBox="0 0 60 40"><path d="M42 20a12 12 0 1 1-4-9"/><path d="M38 4v8h8"/><circle cx="30" cy="20" r="3"/></svg>
+        <b>Spin</b><span>In the air, circle a finger fast. Faster circles spin faster, either direction, up to 2160.</span></div>
+      <div class="gesture"><svg viewBox="0 0 60 40"><path d="M20 34V8m0 0-6 6m6-6 6 6M40 6v26m0 0-6-6m6 6 6-6"/></svg>
+        <b>Flip</b><span>In the air, swipe up for a front flip or down for a back flip.</span></div>
+      <div class="gesture"><svg viewBox="0 0 60 40"><circle cx="18" cy="20" r="11"/><circle cx="42" cy="20" r="11"/><text x="18" y="23" class="sm">BOOST</text><text x="42" y="23" class="sm">BRAKE</text></svg>
+        <b>Boost and brake</b><span>Hold BOOST to speed up or BRAKE to slow down. You never stop completely.</span></div>
+      <div class="gesture"><svg viewBox="0 0 60 40"><rect x="26" y="2" width="8" height="24" rx="4"/><circle cx="30" cy="32" r="6" class="hot"/></svg>
+        <b>Adrenaline</b><span>When the meter is full, the circle under it glows red and pulses. Tap it.</span></div>
+    </div>
+  </section>
+
+  <section class="screen" data-screen="controls-web" hidden>
+    <header><button class="back" data-go="settings">&lsaquo; Back</button><h2>Keyboard controls</h2>
+      <button class="plain small" id="keys-reset">Reset to defaults</button></header>
+    <div id="key-note">Select a key to change it, then press the new key. Esc cancels.</div>
+    <div id="key-list"></div>
   </section>
 
   <section class="screen" data-screen="results" hidden>

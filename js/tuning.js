@@ -72,7 +72,7 @@ export const DEFAULTS = {
     chargedJump: 1.1,     // charged (80%+) multipliers
     chargedAir: 1.06,
     chargedSpin: 1.15,
-    adrenalineTime: 8,    // seconds adrenaline lasts once fired
+    adrenalineTime: 7,    // seconds adrenaline lasts once fired
     adrJump: 1.35,        // adrenaline multipliers
     adrAir: 1.15,
     adrSpin: 1.6,

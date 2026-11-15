@@ -60,7 +60,7 @@ Scoring model (approved shape; all numbers tunable):
 - Fills from landed trick points before the multiplier: `meter.fillPer100` (2.5 % per 100 points), so about 4000 points fills it.
 - **Below 80 %:** all mods 1.
 - **80 % to 99 % ("charged"):** `jump` 1.10, `air` 1.06, `spin` 1.15, `boost` 1.
-- **100 %:** holds, with the charged mods, until the player fires it (Shift, E, or the on-screen adrenaline button). Then adrenaline lasts `meter.adrenalineTime` (8 s), draining the meter visibly to 0: `jump` 1.35, `air` 1.15, `spin` 1.6, `boost` 2.0, and all trick points are doubled while it runs. Landing tricks during adrenaline does not refill it; filling starts again when it ends.
+- **100 %:** holds, with the charged mods, until the player fires it (Shift, E, or the on-screen adrenaline button). Then adrenaline lasts `meter.adrenalineTime` (7 s), draining the meter visibly to 0: `jump` 1.35, `air` 1.15, `spin` 1.6, `boost` 2.0, and all trick points are doubled while it runs. Landing tricks during adrenaline does not refill it; filling starts again when it ends.
 - **Crash:** removes `meter.crashLoss` (25 percentage points) and ends adrenaline immediately.
 - Add the adrenaline button to `#touch` in `index.html` (`data-btn="adrenaline"`, already handled by `input.js`); show it only when the meter is full.
 - Visuals: meter bar in the HUD with the 80 % mark shown; when charged, a subtle glow on the rider; during adrenaline, a speed-line overlay (CSS, opacity only) and a slightly wider camera (`camera.fov` + `meter.adrenalineFov`).

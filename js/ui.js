@@ -9,6 +9,7 @@ import { LEVELS } from './data/levels/index.js';
 import { RIDERS, EQUIPMENT } from './data/riders.js';
 import { save } from './save.js';
 import { formatTime } from './run.js';
+import { settings, ACTIONS, keyAllowed, keyLabel } from './settings.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const hex = (n) => `#${n.toString(16).padStart(6, '0')}`;
@@ -65,6 +66,8 @@ export function createUI({ onStart, onResume, onRestart, onQuit }) {
     rider: RIDERS.some((r) => r.id === save.rider) ? save.rider : RIDERS[0].id,
   };
   let current = 'title';
+  let settingsFrom = 'title';          // the screen Settings was opened from (title or pause)
+  let listening = null;                // the action waiting for a new key, if any
   const modeOf = (id) => MODES.find((m) => m.id === id);
 
   function show(name) {
@@ -74,6 +77,8 @@ export function createUI({ onStart, onResume, onRestart, onQuit }) {
     if (name === 'mode') renderModes();
     if (name === 'level') renderLevels();
     if (name === 'rider') renderRider();
+    if (name === 'controls-web') renderKeys();
+    listening = null;
     const first = $(`.screen[data-screen="${name}"] .selected, .screen[data-screen="${name}"] .cta`, menu);
     if (first) first.focus({ preventScroll: true });
   }
@@ -106,6 +111,34 @@ export function createUI({ onStart, onResume, onRestart, onQuit }) {
     $('#rider-list').innerHTML = [1, 2, 3].map(() => '<div class="card locked"><h3>?</h3><p>Coming soon</p></div>').join('');
   }
 
+  // ---- keyboard controls: one key per action, no key used twice
+  function renderKeys(note = '', warn = false) {
+    $('#key-list').innerHTML = ACTIONS.map((a) => `
+      <div class="key-row"><div><b>${a.label}</b><small>${a.air}</small></div>
+        <button class="keycap${listening === a.id ? ' listening' : ''}" data-key="${a.id}">${listening === a.id ? 'Press a key…' : keyLabel(settings.keys[a.id])}</button></div>`).join('');
+    const n = $('#key-note');
+    n.textContent = note || 'Select a key to change it, then press the new key. Esc cancels.';
+    n.classList.toggle('warn', warn);
+  }
+  // Runs before every other key handler while a key is being chosen, so the
+  // press is not also treated as steering, pausing or going back.
+  addEventListener('keydown', (e) => {
+    if (!listening) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    const action = listening, label = ACTIONS.find((a) => a.id === action).label;
+    if (e.code === 'Escape') { listening = null; renderKeys(); return; }
+    if (!keyAllowed(e.code)) {
+      renderKeys(/^Numpad/.test(e.code) ? 'Number pad keys cannot be used. Press another key.' : 'That key cannot be used. Press another key.', true);
+      return;
+    }
+    listening = null;
+    const res = settings.bind(action, e.code);
+    const other = res.swapped && ACTIONS.find((a) => a.id === res.swapped);
+    renderKeys(other
+      ? `${keyLabel(e.code)} was already ${other.label}, so the two swapped: ${other.label} is now ${keyLabel(settings.keys[other.id])}.`
+      : `${label} is now ${keyLabel(e.code)}.`, Boolean(other));
+  }, true);
+
   function start() {
     save.choose({ mode: choice.mode, level: choice.level, rider: choice.rider });
     onStart({ ...choice });
@@ -114,7 +147,11 @@ export function createUI({ onStart, onResume, onRestart, onQuit }) {
   menu.addEventListener('click', (e) => {
     const b = e.target.closest('button');
     if (!b) return;
-    if (b.dataset.go) show(b.dataset.go);
+    if (b.dataset.key) { listening = b.dataset.key; renderKeys(); }
+    else if (b.id === 'keys-reset') { settings.resetKeys(); listening = null; renderKeys('Keys reset to the defaults.'); }
+    else if ('settings' in b.dataset) { settingsFrom = current; show('settings'); }
+    else if ('back' in b.dataset) show(settingsFrom);
+    else if (b.dataset.go) show(b.dataset.go);
     else if (b.dataset.mode) { choice.mode = b.dataset.mode; show('level'); }
     else if (b.dataset.level) { choice.level = b.dataset.level; show('rider'); }
     else if (b.id === 'btn-start') start();
@@ -125,8 +162,8 @@ export function createUI({ onStart, onResume, onRestart, onQuit }) {
   // Esc steps back through the menus (pause is handled by main.js).
   addEventListener('keydown', (e) => {
     if (e.code !== 'Escape' || !current) return;
-    const back = { mode: 'title', level: 'mode', rider: 'level' }[current];
-    if (back) show(back);
+    const back = { mode: 'title', level: 'mode', rider: 'level', settings: settingsFrom, 'controls-mobile': 'settings', 'controls-web': 'settings' }[current];
+    if (back) { show(back); e.stopImmediatePropagation(); }
   });
 
   function showResults(res, info) {

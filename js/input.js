@@ -6,13 +6,16 @@
 //   left/right  steer on snow            | taps spin, holding spins slowly
 //   up          boost on snow            | front flip
 //   down        brake on snow            | back flip
-//   space       hold to crouch, release to jump
-//   shift or E  fire adrenaline
+//   jump        hold to crouch, release to jump
+//   adrenaline  fire adrenaline
+// Which physical key is which action comes from js/settings.js (remappable;
+// defaults: arrows, Space, Left Shift).
 //
 // Touch: drag sideways to steer. In the air, circle a finger to spin and
 // swipe up/down to flip. On-screen buttons carry data-btn="jump|boost|brake|adrenaline".
 
 import { T } from './tuning.js';
+import { settings } from './settings.js';
 
 const wrapPi = (a) => a - Math.round(a / (Math.PI * 2)) * Math.PI * 2;
 
@@ -23,20 +26,22 @@ export function createInput(surface) {
   const pointers = new Map();          // pointerId -> drag state
   let steerId = null, airborne = false;
 
-  const LEFT = ['ArrowLeft', 'KeyA'], RIGHT = ['ArrowRight', 'KeyD'], UP = ['ArrowUp', 'KeyW'], DOWN = ['ArrowDown', 'KeyS'];
-  const held = (list) => list.some((k) => keys.has(k));
+  const K = settings.keys;             // action -> key code, live
+  const held = (action) => keys.has(K[action]);
 
   addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLInputElement) return;
+    const action = settings.actionFor(e.code);
     if (!e.repeat) {
-      if (LEFT.includes(e.code)) tapLeft++;
-      if (RIGHT.includes(e.code)) tapRight++;
-      if (UP.includes(e.code)) flipPress = 1;
-      if (DOWN.includes(e.code)) flipPress = -1;
-      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyE') adrenaline = true;
+      if (action === 'left') tapLeft++;
+      if (action === 'right') tapRight++;
+      if (action === 'up') flipPress = 1;
+      if (action === 'down') flipPress = -1;
+      if (action === 'adrenaline') adrenaline = true;
     }
     keys.add(e.code);
-    if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
+    // stop bound keys scrolling the page or pressing a focused button
+    if (action && !document.body.classList.contains('in-menu')) e.preventDefault();
   });
   addEventListener('keyup', (e) => keys.delete(e.code));
   addEventListener('blur', () => { keys.clear(); buttons.jump = buttons.boost = buttons.brake = false; });
@@ -46,7 +51,8 @@ export function createInput(surface) {
     const name = el.dataset.btn;
     el.addEventListener('pointerdown', (e) => {
       e.preventDefault(); e.stopPropagation();
-      el.setPointerCapture(e.pointerId); el.classList.add('down');
+      try { el.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
+      el.classList.add('down');
       if (name === 'adrenaline') adrenaline = true; else buttons[name] = true;
     });
     const up = (e) => { e.stopPropagation(); el.classList.remove('down'); if (name !== 'adrenaline') buttons[name] = false; };
@@ -105,19 +111,19 @@ export function createInput(surface) {
       airborne = v;
     },
     read() {
-      let steer = (held(RIGHT) ? 1 : 0) - (held(LEFT) ? 1 : 0);
+      let steer = (held('right') ? 1 : 0) - (held('left') ? 1 : 0);
       const sp = pointers.get(steerId);
       if (sp) steer += Math.max(-1, Math.min(1, (sp.x - sp.x0) / T.touch.steerRange));
       const out = {
         steer: Math.max(-1, Math.min(1, steer)),
-        boost: held(UP) || buttons.boost,
-        brake: held(DOWN) || buttons.brake,
-        jumpHeld: keys.has('Space') || buttons.jump,
+        boost: held('up') || buttons.boost,
+        brake: held('down') || buttons.brake,
+        jumpHeld: held('jump') || buttons.jump,
         spinTaps: tapRight - tapLeft,
-        spinHold: (held(RIGHT) ? 1 : 0) - (held(LEFT) ? 1 : 0),
+        spinHold: (held('right') ? 1 : 0) - (held('left') ? 1 : 0),
         spinGesture,
         flipPress,
-        flipHold: (held(UP) ? 1 : 0) - (held(DOWN) ? 1 : 0),
+        flipHold: (held('up') ? 1 : 0) - (held('down') ? 1 : 0),
         adrenaline,
       };
       tapLeft = tapRight = 0; flipPress = 0; adrenaline = false; spinGesture = 0;

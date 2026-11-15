@@ -15,6 +15,7 @@ import { createGateTracker } from './gates.js';
 import { createMeter } from './meter.js';
 import { createRun, formatTime } from './run.js';
 import { save } from './save.js';
+import { settings } from './settings.js';
 import { createView } from './render/view.js';
 import { createDebug } from './debug.js';
 import { createUI, formatBest } from './ui.js';
@@ -69,10 +70,12 @@ function pause() {
   resumeTo = phase; phase = 'paused'; ui.show('pause');
 }
 addEventListener('keydown', (e) => {
-  if (e.code === 'Escape' || e.code === 'KeyP') {
-    if (phase === 'paused') { ui.hide(); phase = resumeTo; } else pause();
+  if (e.repeat) return;
+  const action = settings.actionFor(e.code);
+  if (action === 'pause') {
+    if (phase === 'paused') { if (ui.screen === 'pause') { ui.hide(); phase = resumeTo; } } else pause();
   }
-  if (e.code === 'KeyR' && (phase === 'riding' || phase === 'finished')) beginRun();
+  if (action === 'restart' && (phase === 'riding' || phase === 'finished')) beginRun();
 });
 $('btn-pause').addEventListener('pointerdown', (e) => { e.stopPropagation(); pause(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
@@ -173,6 +176,7 @@ function tick(dt, inp) {
     el.meterMark.style.bottom = `${T.meter.chargedAt * 100}%`;
     el.meter.className = meter.state;
     document.body.classList.toggle('meter-full', meter.state === 'full');
+    document.body.classList.toggle('meter-adr', meter.state === 'adrenaline');
   }
   debug.frame(dt);
 }
