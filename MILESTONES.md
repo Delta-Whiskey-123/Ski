@@ -142,7 +142,7 @@ Rules for placing things:
 
 ## - [ ] 9. Final rider model and animation
 
-**Goal:** replace the boxy stand-in with the chosen look (see `PROGRESS.md` for the owner's pick from `spikes/riders.html`).
+**Goal:** replace the boxy stand-in with the chosen look: **A, high ponytail with goggles pushed up**, as sketched in `spikes/riders.html`.
 
 - Still built in code. Keep the node order in `rider-model.js` (root > yaw > flip > spin > lean > body). Aim for a confident, athletic, feminine silhouette that reads at 25 pixels tall: clear waist and hips, the chosen hair as a strong moving shape, blue top, red trousers, white chest stripe.
 - Poses blended by state: riding (knees bent, arms out), carving (lean, trailing hand toward the snow), crouch while charging, air tuck, a grab pose while spinning fast, arms up on a landed big trick, tumble.
