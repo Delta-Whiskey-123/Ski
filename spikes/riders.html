@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rider sketches</title>
+<style>
+  html,body{margin:0;min-height:100%;background:linear-gradient(160deg,#16224a,#2b3f7d 60%,#5876c9);font-family:system-ui,sans-serif;color:#fff}
+  h1{margin:0;padding:18px 20px 0;font:italic 900 26px system-ui,sans-serif;letter-spacing:.5px}
+  p.lead{margin:4px 20px 0;opacity:.8;font-size:14px}
+  .row{display:flex;gap:16px;padding:16px 20px 24px;flex-wrap:wrap;justify-content:center}
+  .card{flex:1 1 220px;max-width:300px;background:rgba(255,255,255,.1);border-radius:18px;padding:12px 12px 16px;text-align:center}
+  .card svg.full{width:100%;height:auto;max-height:62vh}
+  .tag{display:inline-block;font:italic 900 22px system-ui,sans-serif;background:#ffe14d;color:#16224a;border-radius:8px;padding:2px 12px;transform:skew(-8deg)}
+  .card h2{margin:8px 0 2px;font-size:17px}
+  .card small{opacity:.8;display:block;font-size:13px;line-height:1.35}
+  .mini{margin-top:10px;background:#f4f7fd;border-radius:12px}
+  .mini-label{font-size:11px;opacity:.7;margin-top:4px}
+</style>
+</head>
+<body>
+<h1>SUMMIT PROTOCOL · rider sketches</h1>
+<p class="lead">Same rider, three looks. The small picture under each is how she reads from the game camera.</p>
+<div class="row" id="row"></div>
+<script type="module">
+const C = { skin: '#f2c8a6', skinS: '#dba783', hair: '#ffd84a', hairS: '#e7b52c', top: '#2f6fe4', topS: '#2253b8', topL: '#7fb0ff',
+  leg: '#e0362c', legS: '#b3241d', dark: '#1b2444', white: '#ffffff', board: '#ffc531', boardS: '#ff7a3d', lens: '#ff9d3c' };
+
+function figure(v) {
+  const wide = v.loose ? 5 : 0;
+  const hairBack = {
+    pony: `<path d="M112,40 C150,26 170,62 158,104 C154,120 146,128 140,132 C150,104 146,72 118,58 Z" fill="${C.hair}"/>
+           <path d="M140,132 C150,104 146,72 118,58 C138,76 142,104 134,128 Z" fill="${C.hairS}"/>`,
+    braid: '',
+    loose: `<path d="M78,54 C66,84 64,104 68,122 L88,112 L112,112 L132,122 C136,104 134,84 122,54 Z" fill="${C.hairS}"/>`,
+  }[v.hair];
+  const hairFront = {
+    pony: `<path d="M79,62 C76,34 98,30 104,32 C122,30 126,48 121,64 C118,50 108,44 98,46 C88,46 82,52 79,62 Z" fill="${C.hair}"/>
+           <rect x="78" y="40" width="44" height="7" rx="3" fill="${C.dark}"/>
+           <rect x="83" y="33" width="34" height="13" rx="6" fill="${C.lens}" stroke="${C.dark}" stroke-width="3"/>
+           <circle cx="114" cy="38" r="5" fill="${C.hair}"/>`,
+    braid: `<path d="M78,60 C74,30 126,30 122,60 C110,54 90,54 78,60 Z" fill="${C.white}"/>
+            <path d="M77,61 C90,54 110,54 123,61 L123,52 C110,46 90,46 77,52 Z" fill="${C.leg}"/>
+            <circle cx="100" cy="31" r="8" fill="${C.white}"/>
+            <rect x="84" y="38" width="32" height="10" rx="5" fill="${C.lens}" stroke="${C.dark}" stroke-width="3"/>
+            <path d="M80,62 C78,70 79,76 81,80 L84,62 Z M120,62 L117,80 C121,76 122,70 120,62 Z" fill="${C.hair}"/>
+            ${[0, 1, 2, 3, 4, 5, 6].map((i) => `<ellipse cx="${121 + i * 1.5 + (i % 2) * 3}" cy="${86 + i * 11}" rx="7.5" ry="7" fill="${i % 2 ? C.hairS : C.hair}"/>`).join('')}
+            <path d="M126,160 l8,14 l-12,-2 z" fill="${C.hair}"/>`,
+    loose: `<path d="M79,64 C74,34 100,30 104,32 C124,30 127,50 121,66 C119,52 110,44 100,46 C90,46 83,54 79,64 Z" fill="${C.hair}"/>
+            <path d="M78,52 C90,43 110,43 122,52 L122,43 C110,35 90,35 78,43 Z" fill="${C.top}"/>
+            <path d="M88,90 C94,98 106,98 112,90 L114,97 C106,105 94,105 86,97 Z" fill="${C.dark}"/>
+            <rect x="91" y="94" width="18" height="8" rx="4" fill="${C.lens}" stroke="${C.dark}" stroke-width="2.5"/>`,
+  }[v.hair];
+
+  return `<svg class="full" viewBox="0 0 200 410" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="100" cy="394" rx="78" ry="9" fill="rgba(10,18,50,.35)"/>
+    <!-- board, held upright -->
+    <g transform="rotate(-5 36 230)">
+      <rect x="20" y="58" width="32" height="336" rx="16" fill="${C.board}"/>
+      <path d="M20,150 L52,120 L52,170 L20,200 Z M20,250 L52,220 L52,240 L20,270 Z" fill="${C.boardS}"/>
+      <rect x="27" y="286" width="18" height="26" rx="4" fill="${C.dark}"/><rect x="27" y="196" width="18" height="26" rx="4" fill="${C.dark}"/>
+    </g>
+    ${hairBack}
+    <!-- legs: weight on her right leg, hip pushed out -->
+    <path d="M80,176 L123,176 Q135,215 131,262 L143,372 L115,372 L105,272 L101,222 L99,272 L99,372 L71,372 L76,262 Q71,215 80,176 Z" fill="${C.leg}"/>
+    <path d="M123,176 Q135,215 131,262 L143,372 L131,372 L119,262 Q123,215 113,176 Z M101,222 L99,272 L99,372 L91,372 L93,262 Z" fill="${C.legS}"/>
+    <rect x="66" y="366" width="38" height="26" rx="10" fill="${C.dark}"/><rect x="111" y="366" width="38" height="26" rx="10" fill="${C.dark}"/>
+    <rect x="66" y="366" width="38" height="7" rx="3" fill="${C.white}"/><rect x="111" y="366" width="38" height="7" rx="3" fill="${C.white}"/>
+    <!-- base layer and belt -->
+    <path d="M83,158 L119,158 L123,178 L80,178 Z" fill="${C.white}"/>
+    <rect x="79" y="174" width="45" height="7" rx="3" fill="${C.dark}"/><rect x="97" y="173" width="10" height="9" rx="2" fill="${C.board}"/>
+    <!-- arm holding the board -->
+    <path d="M76,106 L${56 - wide},142 L46,172" fill="none" stroke="${C.top}" stroke-width="${15 + wide}" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="45" cy="174" r="10" fill="${C.dark}"/>
+    <!-- jacket -->
+    <g transform="rotate(-4 100 130)">
+      <path d="M${72 - wide},102 Q100,90 ${128 + wide},102 L${122 + wide},136 Q${117 + wide},150 ${120 + wide},164 L${82 - wide},164 Q${85 - wide},150 ${79 - wide},136 Z" fill="${C.top}"/>
+      <path d="M${128 + wide},102 L${122 + wide},136 Q${117 + wide},150 ${120 + wide},164 L${108 + wide},164 Q${106 + wide},140 ${114 + wide},100 Z" fill="${C.topS}"/>
+      <path d="M${76 - wide},122 L100,136 L${125 + wide},122 L${124 + wide},132 L100,146 L${77 - wide},132 Z" fill="${C.white}"/>
+      <path d="M${78 - wide},138 L100,152 L${123 + wide},138 L${122 + wide},143 L100,157 L${79 - wide},143 Z" fill="${C.topL}"/>
+      <path d="M90,96 L100,110 L110,96 L112,104 L100,118 L88,104 Z" fill="${C.topS}"/>
+      <line x1="100" y1="112" x2="100" y2="164" stroke="${C.dark}" stroke-width="2"/>
+    </g>
+    <!-- hand on hip -->
+    <path d="M125,106 L${152 + wide},142 L126,170" fill="none" stroke="${C.topS}" stroke-width="${15 + wide}" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="125" cy="172" r="10" fill="${C.dark}"/>
+    <!-- head -->
+    <rect x="93" y="78" width="14" height="20" rx="5" fill="${C.skinS}"/>
+    <ellipse cx="100" cy="62" rx="20" ry="23" fill="${C.skin}"/>
+    <path d="M88,62 q5,-5 10,0 M103,62 q5,-5 10,0" fill="none" stroke="${C.dark}" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="M92,73 q8,7 17,-1" fill="none" stroke="#c2452f" stroke-width="2.8" stroke-linecap="round"/>
+    ${hairFront}
+  </svg>`;
+}
+
+// how she reads from the game camera: board, shoulders, head, and the hair feature
+function mini(v) {
+  const feature = {
+    pony: `<path d="M64,30 C80,14 100,18 104,30" fill="none" stroke="${C.hair}" stroke-width="6" stroke-linecap="round"/>`,
+    braid: `<circle cx="60" cy="40" r="9" fill="${C.white}"/><circle cx="60" cy="40" r="3.5" fill="${C.leg}"/>
+            <path d="M66,34 L82,22" stroke="${C.hair}" stroke-width="5" stroke-linecap="round" stroke-dasharray="1 5"/>`,
+    loose: `<path d="M50,36 a11,11 0 0 1 20,0 l2,12 l-24,0 z" fill="${C.hair}"/><path d="M51,37 a10,10 0 0 1 18,0" fill="none" stroke="${C.top}" stroke-width="4"/>`,
+  }[v.hair];
+  return `<svg class="mini" viewBox="0 0 120 80" width="120" height="80">
+    <ellipse cx="72" cy="52" rx="34" ry="8" fill="rgba(96,126,196,.4)"/>
+    <rect x="22" y="38" width="76" height="13" rx="6.5" fill="${C.board}" transform="rotate(-12 60 44)"/>
+    <ellipse cx="60" cy="43" rx="${v.loose ? 15 : 13}" ry="8" fill="${C.top}" transform="rotate(-12 60 43)"/>
+    <path d="M40,48 L80,38" stroke="${C.top}" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="60" cy="40" r="8" fill="${C.hair}"/>
+    ${feature}
+  </svg>`;
+}
+
+const looks = [
+  { tag: 'A', hair: 'pony', title: 'High ponytail, goggles up', note: 'Racer energy. The long ponytail whips round in spins, which also makes rotation easy to read from above.' },
+  { tag: 'B', hair: 'braid', loose: true, title: 'Braid and beanie', note: 'Mountain-local feel. White pom-pom beanie stands out from the camera; looser jacket.' },
+  { tag: 'C', hair: 'loose', title: 'Loose hair, headband', note: 'Sleek and sporty. Blue headband, goggles round the neck, hair flares out in the air.' },
+];
+document.getElementById('row').innerHTML = looks.map((v) => `
+  <div class="card"><span class="tag">${v.tag}</span>${figure(v)}<h2>${v.title}</h2><small>${v.note}</small>${mini(v)}<div class="mini-label">from the game camera</div></div>`).join('');
+</script>
+</body>
+</html>
