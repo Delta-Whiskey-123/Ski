@@ -12,6 +12,11 @@
   - course paint on man-made jumps (blue spray that thickens over the 16 m before the ramp and up it, red take-off line on the lip), so they read differently from natural jumps;
   - red safety fencing down both sides of the mountain, with a few small trees just inside it as hazards and the full forest beyond;
   - tuning panel (`` ` `` key or triple-tap the top-left corner) with every gameplay number, saved on the device.
+- **Menus and modes (built ahead of order at the owner's request).** Title > Mode > Level > Rider screens, pause (Esc, P, the on-screen button, or leaving the tab) and results. Two modes on the same mountain:
+  - **Race:** fastest time; every missed gate adds 1 s; gates on every piste so any route is legal; gold/silver/bronze targets; best time saved. Tricks charge the meter for adrenaline speed.
+  - **Tricks Run:** selectable and rideable, shows tricks landed and best trick; points arrive with milestone 2.
+- **Power meter and adrenaline** as specified (charged at 80 %, fired by the player at 100 %, 8 s). Measured on the big kicker: 1.67 s of air normally, 1.90 s charged, 2.37 s on adrenaline.
+- Start line and finish line with arches; 3-2-1 countdown; coasting to a stop after the finish.
 - Measured from the console on the test slope, riding straight with no input: airs of 0.3 s (roller), 0.75 s (4.5 m ledge), 0.7 s (roller), 1.7 s (big kicker), 1.5 s (12 m ledge). A charged jump pop adds to these.
 
 ## Next
@@ -33,7 +38,10 @@ Milestone 1 in `MILESTONES.md` (crashes and obstacles).
 - Frame rate has not been measured on any phone. The preview pane used for development does not run animation continuously, so there is no desktop figure either.
 - How far ahead you can see is limited by the top-to-bottom direction on a wide screen: about 30 m, roughly 1.3 s at top speed (the owner asked for the rider to sit lower on screen, about 18 % from the top, which costs a little look-ahead). `camera.height`, `camera.lead` and `camera.fov` trade rider size against look-ahead.
 - Ledge sides and cliff faces are only coloured as rock when steep in the downhill direction.
-- No crashes, scoring, meter, menus or sound yet; trees can be ridden through.
+- No crashes, scoring, settings screen or sound yet; trees and fences can be ridden through.
+- Race medal times (36 / 41 / 48 s) are placeholders for the short test slope. A straight no-steering run takes 37.9 s and misses 9 of 11 gates.
+- Gates are 4.8 m wide (`race.gateHalfWidth` 2.4). Whether that is the right difficulty at speed needs the owner's play-testing.
+- The menus have been checked at 812x375 and desktop size, driven from the console; not on a real phone.
 - The project folder is under `.claude`, which the Claude desktop app will not attach to a session that was started elsewhere. Start sessions directly in the folder.
 
 ## Decisions and why
@@ -49,4 +57,5 @@ Milestone 1 in `MILESTONES.md` (crashes and obstacles).
 - **Run rules fixed by the owner:** par times only (no countdown), a crash loses the unbanked pot and 25 points of meter, adrenaline is fired by the player, level 1 is wild at the top and resort at the bottom, about 2 minutes, speed unit switchable (default mph), equipment as data so skis can come later.
 - **Scoring model approved by the owner** (2026-11-15) as written in milestone 2. Numbers stay tunable; the shape should not change without asking.
 - **Rider look chosen by the owner (2026-11-15): A, high ponytail with goggles pushed up** (see `spikes/riders.html`). Milestone 9 builds this; the stand-in already has a ponytail.
+- **Modes (owner, 2026-11-15):** menu order Title > Mode > Level > Rider; Race has no points, tricks only charge the meter; gates on every branch; Tricks Run keeps the approved speed bonus and gate multiplier; Race results show best time plus medal targets.
 - **Original rider:** Freya Lindqvist, blonde, blue top, red trousers. Not based on any existing game's character.

@@ -64,6 +64,15 @@ export function createTerrain(level) {
   }
   // The red safety fence runs down both sides of the mountain, this far outside the outermost pistes.
   const fenceOffset = level.fenceOffset ?? 10;
+  // Id of the piste the rider is on (the nearest one) at this z.
+  function nearestPathId(x, z) {
+    let best = 1e9, id = null;
+    for (const p of level.paths) {
+      const c = pathAt(p, z);
+      if (c && Math.abs(x - c.x) - c.w < best) { best = Math.abs(x - c.x) - c.w; id = p.id; }
+    }
+    return id;
+  }
   const mainAt = (z) => pathAt(level.paths[0], Math.max(level.paths[0].nodes[0].z, Math.min(level.paths[0].nodes.at(-1).z, z)));
 
   // ---- features, bucketed by z so lookups stay cheap
@@ -170,16 +179,29 @@ export function createTerrain(level) {
     fences[1].points.push({ x: e.right + fenceOffset, z });
   }
 
-  // ---- slalom gates down the main piste, alternating sides
+  // ---- slalom gates down every piste, alternating sides. A gate belongs to
+  // its piste: it only counts for a rider who is on that piste when she reaches it.
+  const nearJump = (x, z) => level.features.some((f) => {
+    if (f.type === 'roller') return false;
+    const z0 = f.type === 'ledge' ? f.z - 12 : f.z, z1 = f.type === 'ledge' ? f.z + f.run : f.z + f.length;
+    return z > z0 - 30 && z < z1 + 45 && Math.abs(x - f.x) < f.width / 2 + 8;
+  });
   const gates = [];
-  for (let z = level.start.z + level.gateSpacing, i = 0; z < level.length - 20; z += level.gateSpacing, i++) {
-    const c = mainAt(z), side = i % 2 ? 1 : -1;
-    gates.push({ x: c.x + side * Math.min(c.w * 0.4, 6), z, red: i % 2 === 0, index: i });
-  }
+  level.paths.forEach((p, pi) => {
+    const spacing = p.gateSpacing || level.gateSpacing;
+    const from = pi === 0 ? level.start.z + spacing : p.nodes[0].z + 40;
+    const to = pi === 0 ? level.length - 25 : p.nodes.at(-1).z - 40;
+    for (let z = from, n = 0; z < to; z += spacing, n++) {
+      const c = pathAt(p, z), side = n % 2 ? 1 : -1, x = c.x + side * Math.min(c.w * 0.4, 6);
+      if (!nearJump(x, z)) gates.push({ x, z, red: n % 2 === 0, path: p.id });
+    }
+  });
+  gates.sort((a, b) => a.z - b.z);
+  gates.forEach((g, n) => { g.index = n; });
 
   return {
     level, bounds, gates, props, fences, binSize: BIN,
-    heightAt, naturalHeightAt, corridorOut, nearestCentre, gradeAt, mainAt, propsBetween,
+    heightAt, naturalHeightAt, corridorOut, nearestCentre, nearestPathId, gradeAt, mainAt, propsBetween,
     kickers: level.features.filter((f) => f.type === 'kicker'),
     edgeWidth: () => T.ride.edgeWidth,
   };

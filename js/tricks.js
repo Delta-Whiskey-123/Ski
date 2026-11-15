@@ -20,3 +20,12 @@ export function resolveTrick({ spin, flip, airTime, maxHeight }) {
     isTrick: halves > 0 || flips > 0,
   };
 }
+
+// Base points for a landed trick, before any multiplier. Used by the power
+// meter now and by scoring later. Numbers are in tuning.js (score group).
+export function trickValue(trick) {
+  const S = T.score;
+  const spin = trick.halves > 0 ? S.spinBase * trick.halves * (1 + S.spinGrowth * (trick.halves - 1)) : 0;
+  const flip = trick.flips > 0 ? S.flipBase * trick.flips * S.flipGrowth ** (trick.flips - 1) : 0;
+  return Math.round((spin + flip) * (spin && flip ? S.comboBonus : 1));
+}

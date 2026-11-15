@@ -60,6 +60,32 @@ export const DEFAULTS = {
     speedLead: 0.15,      // extra lead per m/s above 15
     smooth: 4,            // camera catch-up speed
   },
+  race: {
+    gatePenalty: 1,       // seconds added to a Race time for each missed gate
+    gateHalfWidth: 2.4,   // half the gap between a gate's two poles (also where the poles are drawn)
+    countdownStep: 0.7,   // seconds per count of 3-2-1 before a run
+    finishCoast: 1.6,     // seconds she rides on after the line before the results appear
+  },
+  meter: {
+    fillPer100: 2.5,      // percent of meter gained per 100 trick points
+    chargedAt: 0.8,       // fraction of the meter at which the small bonuses start
+    chargedJump: 1.1,     // charged (80%+) multipliers
+    chargedAir: 1.06,
+    chargedSpin: 1.15,
+    adrenalineTime: 8,    // seconds adrenaline lasts once fired
+    adrJump: 1.35,        // adrenaline multipliers
+    adrAir: 1.15,
+    adrSpin: 1.6,
+    adrBoost: 2,
+    crashLoss: 0.25,      // fraction of the meter lost in a crash
+  },
+  score: {
+    spinBase: 100,        // points per half-turn
+    spinGrowth: 0.1,      // each extra half-turn is worth this much more
+    flipBase: 300,        // points for one flip
+    flipGrowth: 1.25,     // multiplier per extra flip
+    comboBonus: 1.5,      // spin and flip in the same air
+  },
   stats: {
     // A rider stat of 1..10 scales its number between these two multipliers.
     low: 0.8,

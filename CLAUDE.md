@@ -13,7 +13,7 @@ The owner is not a professional developer. Explain choices in plain language. Wh
 - Target 60 fps on a mid-range phone. Quality presets (`QUALITY` in `js/render/view.js`) scale pixel ratio, shadows and terrain detail.
 - **Every gameplay number lives in `js/tuning.js`.** Never hard-code a feel value (speeds, timings, point values, meter rates, distances that affect play). Add it to `DEFAULTS` with a one-line comment; it then appears in the debug panel automatically. Purely visual constants (model sizes, colours) may stay in the render files.
 - **Course, riders, equipment, tricks and levels are data** under `js/data/`. Adding one must not need engine changes.
-- Input acts on `pointerdown`/`keydown`, never `click`. Every pointer is tracked independently.
+- Gameplay input acts on `pointerdown`/`keydown`, never `click`, and every pointer is tracked independently. Menu buttons (`js/ui.js`) may use `click` so keyboard and assistive activation work.
 - CSS animates only `transform` and `opacity`. Honour `prefers-reduced-motion`.
 - Original work only. The game is inspired by arcade snowboard games and top-down ski games in general. Do not copy any existing game's characters, names, courses, UI, art, music or branding. The rider is an original character.
 - Gameplay rules the owner has fixed: braking never stops the rider; landing badly costs nothing; only hitting an obstacle is a crash; a crash never ends the run; no other people on the slope.
@@ -32,7 +32,8 @@ There is no test suite. Check by hand:
 2. Keyboard: left/right carve; space (hold, release) jumps; in the air, tapping left/right spins and up/down flips; a landed trick shows a call-out.
 3. A phone-sized landscape viewport (812x375) and a desktop window both look right; a phone-sized portrait viewport on a touch device shows the rotate screen.
 4. `` ` `` opens the tuning panel (or tap the top-left corner three times). It shows fps.
-5. `window.summit` exposes `state`, `T`, `terrain`, `view`, `step`, `STEP`, `startRun` for poking from the console. The simulation can be driven without drawing: call `summit.step(summit.state, summit.STEP, inputObject, summit.terrain, stats)` in a loop and read the returned events. Use this to measure air times and to test logic; the preview pane does not always run animation frames continuously.
+5. **Drive the real game loop from the console:** `summit.tick(dt, input)` runs one frame of the whole game (phases, gates, meter, HUD), e.g. `for (let t = 0; t < 5; t += 1/30) summit.tick(1/30, { ...summit.idle(), steer: 0.5 })`. Use this to test run flow; the preview pane throttles animation frames, so waiting in real time does not work. `summit.phase`, `summit.run`, `summit.meter` (`.set(0.85)`), `summit.ui.show(name)` and `summit.save` are also exposed.
+6. `window.summit` also exposes `state`, `T`, `terrain`, `view`, `step`, `STEP`, `startRun` for poking from the console. The simulation can be driven without drawing: call `summit.step(summit.state, summit.STEP, inputObject, summit.terrain, stats)` in a loop and read the returned events. Use this to measure air times and to test logic; the preview pane does not always run animation frames continuously.
 
 Touch gestures, multi-touch and real phone frame rate cannot be verified on desktop. `PROGRESS.md` lists what the owner must try on a real phone.
 
@@ -48,7 +49,14 @@ Touch gestures, multi-touch and real phone frame rate cannot be verified on desk
 | `js/input.js` | Keyboard and touch. Reports intent; never touches the rider. |
 | `js/terrain.js` | Turns level data into ground, pistes, forest and gates. Answers height and piste questions. No drawing. |
 | `js/rider-physics.js` | The rider simulation. Pure logic, returns events. |
-| `js/tricks.js` | Works out what was landed from what happened in the air. |
+| `js/tricks.js` | Works out what was landed from what happened in the air, and its base point value. |
+| `js/gates.js` | Watches the rider pass or miss slalom gates. Pure logic. |
+| `js/meter.js` | The power meter and adrenaline. Pure logic; supplies `mods()` to the physics. |
+| `js/run.js` | One run: clock, gate counts, Race penalties, result and medal. Pure logic. |
+| `js/save.js` | Best results and last menu choices in `localStorage` (versioned). |
+| `js/ui.js` | Menu screens: title, mode, level, rider, pause, results. Shows screens and reports choices only. |
+| `js/data/modes.js` | The two modes (Race, Tricks Run) as menu data. |
+| `js/data/levels/index.js` | The six level slots for level select. |
 | `js/data/levels/level1.js` | Level 1 as data. |
 | `js/data/riders.js` | Riders, equipment, and stat-to-multiplier mapping. |
 | `js/data/tricks.js` | Trick names (and, later, values). |
@@ -73,11 +81,14 @@ Keep the separation: `input.js` reports, `rider-physics.js` decides, `render/*` 
 - **Natural vs man-made:** rollers and ledges are part of the snow surface (`naturalHeightAt`, drawn by the terrain mesh). Kickers (and later rails/boxes) are separate models with exact shapes; `heightAt` adds them on top. The rider always uses `heightAt`.
 - **Fixed time step:** the simulation runs at 120 Hz (`STEP`) regardless of frame rate. Input is read once per frame; one-shot presses apply to the first step of the frame only.
 - **Same keys, two meanings:** left/right/up/down mean steer/boost/brake on snow and spin/flip in the air. `input.js` reports both readings; `rider-physics.js` picks by state.
+- **Two modes, one mountain.** Race: fastest total time, where total = riding time + `race.gatePenalty` (1 s) per missed gate; medals from `level.race`. Tricks Run: score (scoring is milestone 2). Tricks charge the meter in both modes. Mode differences belong in `js/run.js`, `js/scoring.js` and the HUD, never in the physics or the level.
+- **Gates belong to a piste.** Every path gets its own gates; a gate only counts (passed or missed) for a rider whose nearest piste at that z is the gate's path, so any route is legal. Passing = crossing its z within `race.gateHalfWidth` of its x, in the air or not.
+- **Run phases** (`main.js`): menu > countdown > riding > finished (coasting past the line) > menu with results; paused can interrupt countdown or riding. Time only advances while riding.
 - **Meter and stats reach physics as multipliers:** `step(..., stats, mods)`. `stats` comes from `deriveStats()`; `mods` (`jump`, `spin`, `boost`, `air`) comes from the power meter. Do not special-case adrenaline inside the physics.
 
 ## Adding things
 
-- **A level:** copy `js/data/levels/level1.js`. `paths` are pistes (centre line + half-width, top to bottom; a branch must start and end on top of another path). `features` are `roller`, `ledge` (natural) and `kicker` (man-made). `grades` set steepness per stretch. The forest, the slalom gates and the red side fences are generated from the paths. Optional level fields: `fenceOffset` (metres from the outermost piste edge to the fence, default 10) and `fenceTreeDensity` (how many small hazard trees grow between piste and fence, default 0.14). Every kicker gets course paint (blue spray thickening toward the jump, red line on the lip) unless it has `paint: false`; natural jumps are never painted. Register the level where levels are listed (level select milestone).
+- **A level:** copy `js/data/levels/level1.js`. `paths` are pistes (centre line + half-width, top to bottom; a branch must start and end on top of another path). `features` are `roller`, `ledge` (natural) and `kicker` (man-made). `grades` set steepness per stretch. The forest, the slalom gates and the red side fences are generated from the paths. Optional level fields: `fenceOffset` (metres from the outermost piste edge to the fence, default 10) and `fenceTreeDensity` (how many small hazard trees grow between piste and fence, default 0.14). Every kicker gets course paint (blue spray thickening toward the jump, red line on the lip) unless it has `paint: false`; natural jumps are never painted. Register it in `js/data/levels/index.js` and give it `race: { gold, silver, bronze }` medal times. (The world is currently built once at start-up for level 1; `main.js` must rebuild terrain and view when a second level exists.)
 - **A rider:** add an object to `RIDERS` in `js/data/riders.js` (stats 1 to 10, colours, look).
 - **Equipment (e.g. skis later):** add to `EQUIPMENT` with a `kind`; the model and stance for a new kind go in `js/render/rider-model.js`.
 - **A trick name:** `js/data/tricks.js`.

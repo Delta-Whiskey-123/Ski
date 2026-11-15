@@ -7,23 +7,80 @@
 <title>Summit Protocol</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body class="in-menu">
 <canvas id="view"></canvas>
 
-<!-- In-run display. Menus and the full HUD are added by later milestones. -->
+<!-- In-run display -->
 <div id="hud">
+  <button id="btn-pause" aria-label="Pause">II</button>
+  <div id="hud-top"></div>
+  <div id="meter" aria-hidden="true"><i id="meter-fill"></i><b id="meter-mark"></b></div>
   <div id="hud-speed"><span id="speed-value">0</span><small id="speed-unit">mph</small></div>
   <div id="hud-air"></div>
   <div id="callout"></div>
+  <div id="flash"></div>
   <div id="charge"><i></i></div>
-  <div id="build-note">Core-feel test build · R restarts · ` opens tuning</div>
+  <div id="countdown"></div>
 </div>
 
 <!-- Touch controls: shown on touch devices only. -->
 <div id="touch">
+  <button class="pad" data-btn="adrenaline" id="btn-adrenaline">GO!</button>
   <button class="pad" data-btn="brake" id="btn-brake">BRAKE</button>
   <button class="pad" data-btn="boost" id="btn-boost">BOOST</button>
   <button class="pad big" data-btn="jump" id="btn-jump">JUMP</button>
+</div>
+
+<!-- Menus: flat screens over the live mountain. js/ui.js fills the lists. -->
+<div id="menu">
+  <section class="screen" data-screen="title">
+    <div class="title-block">
+      <h1>SUMMIT<br><span>PROTOCOL</span></h1>
+      <p>One mountain. One run. Make it count.</p>
+      <button class="cta" data-go="mode">PLAY</button>
+    </div>
+  </section>
+
+  <section class="screen" data-screen="mode" hidden>
+    <header><button class="back" data-go="title">&lsaquo; Back</button><h2>Choose your run</h2></header>
+    <div class="cards two" id="mode-list"></div>
+  </section>
+
+  <section class="screen" data-screen="level" hidden>
+    <header><button class="back" data-go="mode">&lsaquo; Back</button><h2>Choose a mountain</h2><span class="crumb" id="crumb-level"></span></header>
+    <div class="cards six" id="level-list"></div>
+  </section>
+
+  <section class="screen" data-screen="rider" hidden>
+    <header><button class="back" data-go="level">&lsaquo; Back</button><h2>Choose a rider</h2><span class="crumb" id="crumb-rider"></span></header>
+    <div class="rider-layout">
+      <div id="rider-card"></div>
+      <div class="rider-side">
+        <div class="cards slots" id="rider-list"></div>
+        <button class="cta" id="btn-start">DROP IN</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="screen" data-screen="pause" hidden>
+    <div class="panel">
+      <h2>Paused</h2>
+      <button class="cta" data-act="resume">RESUME</button>
+      <button class="plain" data-act="restart">Restart run</button>
+      <button class="plain" data-act="quit">Quit to menu</button>
+    </div>
+  </section>
+
+  <section class="screen" data-screen="results" hidden>
+    <div class="panel wide">
+      <h2 id="results-title">Finished</h2>
+      <div id="results-body"></div>
+      <div class="row">
+        <button class="cta" data-act="restart">RETRY</button>
+        <button class="plain" data-act="quit">Menu</button>
+      </div>
+    </div>
+  </section>
 </div>
 
 <div id="rotate"><div><b>Turn your phone sideways</b><span>Summit Protocol plays in landscape.</span></div></div>

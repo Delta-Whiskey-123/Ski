@@ -3,6 +3,7 @@
 import * as THREE from '../../vendor/three.module.min.js';
 import { mergeParts, place, paint } from './geo.js';
 import { hash2 } from '../terrain.js';
+import { T } from '../tuning.js';
 
 const BEHIND = 150, AHEAD = 60, MAX_TREES = 1400;
 
@@ -27,11 +28,11 @@ function blobGeometry() {
     { geo: ico, color: 0xc97656, matrix: place(-0.3, 4.0, 1.2, 1.1, 1.1, 1.1, 4, 8) },
   ]);
 }
-function gateGeometry(color) {
+function gateGeometry(color, half) {
   const pole = new THREE.CylinderGeometry(0.07, 0.07, 1.9, 5), flag = new THREE.BoxGeometry(0.95, 0.55, 0.05);
   const parts = [];
-  for (const dx of [-1.7, 1.7]) {
-    parts.push({ geo: pole, color, matrix: place(dx, 0.95, 0) }, { geo: flag, color, matrix: place(dx + 0.5, 1.6, 0) });
+  for (const dx of [-half, half]) {
+    parts.push({ geo: pole, color, matrix: place(dx, 0.95, 0) }, { geo: flag, color, matrix: place(dx - Math.sign(dx) * 0.5, 1.6, 0) });
   }
   return mergeParts(parts);
 }
@@ -143,6 +144,29 @@ function buildFences(scene, terrain) {
   }
 }
 
+// ---- start and finish: a painted line across the main piste and an arch over it
+function buildLine(scene, terrain, z, finish) {
+  const c = terrain.mainAt(z), width = c.w * 2;
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 32;
+  const g = cv.getContext('2d');
+  if (finish) {
+    for (let y = 0; y < 2; y++) for (let x = 0; x < 16; x++) { g.fillStyle = (x + y) % 2 ? '#16224a' : '#ffffff'; g.fillRect(x * 16, y * 16, 16, 16); }
+  } else { g.fillStyle = '#e5352b'; g.fillRect(0, 0, 256, 32); }
+  const map = new THREE.CanvasTexture(cv); map.colorSpace = THREE.SRGBColorSpace;
+  const mat = new THREE.MeshLambertMaterial({ map, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  const depth = finish ? 3 : 0.8;
+  const line = new THREE.Mesh(groundStrip(terrain, { x: c.x, width, z: z - depth / 2, length: depth + 1 }, z - depth / 2, z + depth / 2, 0.05), mat);
+  line.receiveShadow = true; line.renderOrder = 1; scene.add(line);
+
+  const colour = finish ? 0x16224a : 0xc9241e, y = terrain.heightAt(c.x, z), H = 6;
+  const arch = new THREE.Mesh(mergeParts([
+    { geo: new THREE.BoxGeometry(0.5, H, 0.5), color: colour, matrix: place(c.x - c.w - 1, y + H / 2, z) },
+    { geo: new THREE.BoxGeometry(0.5, H, 0.5), color: colour, matrix: place(c.x + c.w + 1, y + H / 2, z) },
+    { geo: new THREE.BoxGeometry(width + 2.5, 1.3, 0.4), color: finish ? 0xffe14d : 0xffffff, matrix: place(c.x, y + H, z) },
+  ]), paint());
+  arch.castShadow = true; scene.add(arch);
+}
+
 export function createProps(scene, terrain) {
   const dummy = new THREE.Object3D();
   const kinds = {
@@ -155,7 +179,7 @@ export function createProps(scene, terrain) {
   // gates: few enough to place once
   for (const red of [true, false]) {
     const list = terrain.gates.filter((g) => g.red === red);
-    const mesh = new THREE.InstancedMesh(gateGeometry(red ? 0xe5433d : 0x3b62e0), paint(), Math.max(1, list.length));
+    const mesh = new THREE.InstancedMesh(gateGeometry(red ? 0xe5433d : 0x3b62e0, T.race.gateHalfWidth), paint(), Math.max(1, list.length));
     list.forEach((g, i) => {
       dummy.position.set(g.x, terrain.heightAt(g.x, g.z), g.z); dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(1);
       dummy.updateMatrix(); mesh.setMatrixAt(i, dummy.matrix);
@@ -174,6 +198,8 @@ export function createProps(scene, terrain) {
   }
 
   buildFences(scene, terrain);
+  buildLine(scene, terrain, terrain.level.start.z + 4, false);
+  buildLine(scene, terrain, terrain.level.length, true);
 
   let lastBin = null;
   return {

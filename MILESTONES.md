@@ -6,6 +6,7 @@ Every new number goes in `js/tuning.js` (new groups are fine). Every milestone e
 
 Driving the simulation from the console (see `CLAUDE.md`, "Run and check") is the reliable way to test logic.
 
+- [x] **0b. Menus, modes, Race, meter** — done by the architect at the owner's request, ahead of order: title > mode > level > rider screens, pause, results; Race mode complete (gates on every piste, +1 s per miss, medals, best time); power meter and adrenaline; start and finish lines; saved bests. Milestones 2, 3, 4 and 7 below are reduced accordingly: read the "Already built" note at the top of each.
 - [x] **0. Core feel** — riding, carving, speed, jumps, spins, flips, landing, camera, shadow, tuning panel. Done by the architect.
 
 ---
@@ -24,6 +25,8 @@ Driving the simulation from the console (see `CLAUDE.md`, "Run and check") is th
 **Check:** ride into a tree, a sign and a rock: tumble, respawn on the piste, ride on. Jump clean over a rock and a fence. Fly into a tree mid-air: crash. Landing sideways or mid-spin: no crash.
 
 ## - [ ] 2. Scoring, gates and checkpoints
+
+**Already built:** gate pass/miss events (`js/gates.js`, handled in `main.js`), Race mode, `trickValue()` in `js/tricks.js` with the spin, flip and combo numbers in `tuning.js` (`score` group), the run clock and the results screen. **Scoring applies to Tricks Run only**; Race stays time-only. Record the banked score as the Tricks Run best with `save.record(level.id, 'tricks', score)` and show it on the results screen in place of the "scoring update" note. Checkpoint banners and sector gold times are used by Tricks Run only.
 
 **Goal:** the full scoring model. New pure module `js/scoring.js`, fed by events from `main.js` (`land`, `crash`, `gate`, `checkpoint`, `nearMiss`, plus a per-step `tick(dt, state)`). Point values live in `js/data/tricks.js` and `js/tuning.js` (`score` group).
 
@@ -50,6 +53,8 @@ Scoring model (approved shape; all numbers tunable):
 
 ## - [ ] 3. Power meter and adrenaline
 
+**Already built:** `js/meter.js` with every rule below, the HUD bar with its 80 % mark, the adrenaline key and touch button, and the "CHARGED" / "ADRENALINE READY" call-outs. It currently fills from `trickValue()` directly. **Left to do here:** double trick points during adrenaline (needs milestone 2), call `meter.crash()` on a crash (needs milestone 1), the rider glow when charged, the speed-line overlay and wider camera during adrenaline, and the console checks below.
+
 **Goal:** the meter. New pure module `js/meter.js` exposing `mods()` (the multipliers passed to `step`) and reacting to `land`, `crash` and the adrenaline button.
 
 - Fills from landed trick points before the multiplier: `meter.fillPer100` (2.5 % per 100 points), so about 4000 points fills it.
@@ -63,6 +68,8 @@ Scoring model (approved shape; all numbers tunable):
 **Check:** from the console, set the meter to 85 % and confirm a kicker gives about 10 % more air time than at 0 %. Fill to 100 %, fire, confirm much bigger air and faster spins for 8 s, then 0 %. Crash at 60 %: meter reads 35 %.
 
 ## - [ ] 4. Full HUD
+
+**Already built:** top-right stat boxes (Race: MISSED, BEST, TIME; Tricks Run: TRICKS, TIME), the meter bar, speed, trick call-outs, the flash line for penalties and meter messages, the countdown and a pause button. **Left to do here:** the Tricks Run pot and multiplier display, SCORE and RECORD for Tricks Run, checkpoint sector flashes, stacked call-outs with values, and the speed unit setting.
 
 **Goal:** the in-run display, in the game's style: loud arcade type over the calm mountain (chunky slanted system font, yellow/pink call-outs, as in `#callout` already).
 
@@ -100,7 +107,7 @@ Rules for placing things:
 - Per-path gate spacing: add an optional `gateSpacing` on a path, and generate gates down the main line and Racer's Piste only (extend the generator in `js/terrain.js`).
 - Scenery models in `js/render/props.js`, built in code, all with collision entries: lift pylon (tall post + crossarm, r 0.6, h 12) with cables drawn between consecutive pylons; hut (box + pitched roof, collide as circle r 4, h 5, placed well off the line); banner (two posts + cloth, r on the posts only); finish arch. No people anywhere.
 - Every man-made jump keeps its course paint (automatic for kickers). Rails and boxes get the same blue approach and red line in milestone 6. The red side fences follow the outermost pistes automatically; check they do not cut across a branch.
-- Set `goldTimes` after the layout is final.
+- Set `goldTimes` after the layout is final, and reset the Race medal times in `level.race` (ride a clean Race: gold = that time + 5 %, silver + 15 %, bronze + 30 %). Check every branch has sensible gates (the generator already skips gates near jumps).
 
 **Check:** ride every branch start to finish from the console and by hand: no gaps between pistes, no jump lands in trees, each rejoin is smooth, the run takes roughly 2 minutes. Fps in the tuning panel stays steady along the whole course.
 
@@ -117,6 +124,8 @@ Rules for placing things:
 **Check:** jump onto each, ride its length, pop off with a spin, see the call-out and points. Missing the rail just lands on snow.
 
 ## - [ ] 7. Menus, settings and run flow
+
+**Already built:** title, mode select, level select (six slots), rider select (one rider, three empty slots), pause, results, the run flow with countdown, and saved bests (`js/save.js`). **Left to do here:** the Settings screen and `js/settings.js` only (sound, quality replacing `?q=`, speed unit, control hints, reduced effects), reachable from the title screen and from pause. A slowly turning 3D rider on the rider screen is optional polish.
 
 **Goal:** simple flat screens, not a 3D hub. All markup in `index.html`, logic in new `js/ui.js`, persistence in new `js/settings.js` (`localStorage`, versioned key).
 

@@ -12,6 +12,7 @@ export default {
   length: 900,                      // finish line z
   start: { x: 0, z: 6 },
   gateSpacing: 45,
+  race: { gold: 36, silver: 41, bronze: 48 },   // Race medal times in seconds (final time, penalties included)
   seed: 7,
 
   // Pistes. Each path is a centre line with a half-width `w`. Paths must be
