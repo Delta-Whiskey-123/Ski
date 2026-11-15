@@ -77,7 +77,7 @@ Keep the separation: `input.js` reports, `rider-physics.js` decides, `render/*` 
 
 ## Adding things
 
-- **A level:** copy `js/data/levels/level1.js`. `paths` are pistes (centre line + half-width, top to bottom; a branch must start and end on top of another path). `features` are `roller`, `ledge` (natural) and `kicker` (man-made). `grades` set steepness per stretch. The forest and the slalom gates are generated from the paths. Register the level where levels are listed (level select milestone).
+- **A level:** copy `js/data/levels/level1.js`. `paths` are pistes (centre line + half-width, top to bottom; a branch must start and end on top of another path). `features` are `roller`, `ledge` (natural) and `kicker` (man-made). `grades` set steepness per stretch. The forest, the slalom gates and the red side fences are generated from the paths. Optional level fields: `fenceOffset` (metres from the outermost piste edge to the fence, default 10) and `fenceTreeDensity` (how many small hazard trees grow between piste and fence, default 0.14). Every kicker gets course paint (blue spray thickening toward the jump, red line on the lip) unless it has `paint: false`; natural jumps are never painted. Register the level where levels are listed (level select milestone).
 - **A rider:** add an object to `RIDERS` in `js/data/riders.js` (stats 1 to 10, colours, look).
 - **Equipment (e.g. skis later):** add to `EQUIPMENT` with a `kind`; the model and stance for a new kind go in `js/render/rider-model.js`.
 - **A trick name:** `js/data/tricks.js`.

@@ -52,6 +52,97 @@ function kickerGeometry(f) {
   return g;
 }
 
+// ---- course paint on man-made jumps (visual only)
+const PAINT_APPROACH = 16;     // metres of blue spray on the snow before the ramp starts
+const PAINT_LINE = 0.55;       // width of the red take-off line, metres
+
+function paintMaterials() {
+  const c = document.createElement('canvas'); c.width = 64; c.height = 256;
+  const g = c.getContext('2d');
+  // the top of the canvas is the lip end: faint far away, dense at the jump
+  for (let y = 0; y < 256; y++) {
+    const t = 1 - y / 255;
+    g.fillStyle = `rgba(28,138,236,${0.8 * t ** 1.7})`; g.fillRect(0, y, 64, 1);
+  }
+  for (let i = 0; i < 2600; i++) {                      // sprayed speckle, denser toward the jump
+    const t = Math.random() ** 0.6, y = (1 - t) * 255;
+    g.fillStyle = `rgba(20,120,225,${0.25 + Math.random() * 0.4})`;
+    g.fillRect(Math.random() * 64, y, 2, 2 + Math.random() * 3);
+  }
+  const map = new THREE.CanvasTexture(c); map.colorSpace = THREE.SRGBColorSpace;
+  const common = { transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 };
+  return {
+    blue: new THREE.MeshLambertMaterial({ map, ...common }),
+    red: new THREE.MeshLambertMaterial({ color: 0xe5352b, ...common }),
+  };
+}
+
+// A strip that hugs the ground from z0 to z1 across the jump's width.
+function groundStrip(terrain, f, z0, z1, lift) {
+  const N = Math.max(2, Math.ceil((z1 - z0) / 0.8)), w = f.width / 2 - 0.06, pos = [], uv = [], idx = [];
+  for (let i = 0; i <= N; i++) {
+    const z = Math.min(z0 + (i / N) * (z1 - z0), f.z + f.length - 0.001);
+    for (const x of [f.x - w, f.x + w]) { pos.push(x, terrain.heightAt(x, z) + lift, z); uv.push(x < f.x ? 0 : 1, i / N); }
+  }
+  for (let i = 0; i < N; i++) { const a = i * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
+
+function paintJump(scene, terrain, f, mats) {
+  const lip = f.z + f.length;
+  const blue = new THREE.Mesh(groundStrip(terrain, f, f.z - PAINT_APPROACH, lip - PAINT_LINE, 0.05), mats.blue);
+  const red = new THREE.Mesh(groundStrip(terrain, f, lip - PAINT_LINE, lip, 0.06), mats.red);
+  for (const m of [blue, red]) { m.receiveShadow = true; m.renderOrder = 1; scene.add(m); }
+}
+
+// ---- red safety fencing down both sides of the mountain
+const FENCE_HEIGHT = 1.7;
+
+function buildFences(scene, terrain) {
+  const c = document.createElement('canvas'); c.width = c.height = 32;
+  const g = c.getContext('2d');
+  g.fillStyle = 'rgba(232,52,44,.55)'; g.fillRect(0, 0, 32, 32);          // see-through mesh...
+  g.strokeStyle = '#e8342c'; g.lineWidth = 3;
+  for (let i = -32; i < 64; i += 8) {                                      // ...with a diamond weave
+    g.beginPath(); g.moveTo(i, 0); g.lineTo(i + 32, 32); g.stroke();
+    g.beginPath(); g.moveTo(i + 32, 0); g.lineTo(i, 32); g.stroke();
+  }
+  g.fillStyle = '#d42a23'; g.fillRect(0, 0, 32, 4); g.fillRect(0, 28, 32, 4);   // top and bottom tape
+  const map = new THREE.CanvasTexture(c);
+  map.wrapS = THREE.RepeatWrapping; map.colorSpace = THREE.SRGBColorSpace;
+  const netMat = new THREE.MeshLambertMaterial({ map, transparent: true, side: THREE.DoubleSide });
+  const postGeo = new THREE.CylinderGeometry(0.07, 0.07, FENCE_HEIGHT + 0.3, 5);
+  const postMat = new THREE.MeshLambertMaterial({ color: 0xc9241e });
+  const dummy = new THREE.Object3D();
+
+  for (const fence of terrain.fences) {
+    const pts = fence.points;
+    if (pts.length < 2) continue;
+    const pos = [], uv = [], idx = [];
+    const posts = new THREE.InstancedMesh(postGeo, postMat, pts.length);
+    let run = 0;
+    pts.forEach((p, i) => {
+      const y = terrain.heightAt(p.x, p.z);
+      if (i) run += Math.hypot(p.x - pts[i - 1].x, p.z - pts[i - 1].z);
+      pos.push(p.x, y + 0.1, p.z, p.x, y + FENCE_HEIGHT, p.z);
+      uv.push(run / 1.6, 0, run / 1.6, 1);
+      if (i < pts.length - 1) { const a = i * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+      dummy.position.set(p.x, y + (FENCE_HEIGHT + 0.3) / 2 - 0.1, p.z); dummy.updateMatrix(); posts.setMatrixAt(i, dummy.matrix);
+    });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    geo.setIndex(idx); geo.computeVertexNormals();
+    const net = new THREE.Mesh(geo, netMat);
+    net.frustumCulled = false; posts.frustumCulled = false; posts.castShadow = net.castShadow = true;
+    scene.add(net, posts);
+  }
+}
+
 export function createProps(scene, terrain) {
   const dummy = new THREE.Object3D();
   const kinds = {
@@ -72,13 +163,17 @@ export function createProps(scene, terrain) {
     mesh.count = list.length; mesh.castShadow = true; mesh.frustumCulled = false; scene.add(mesh);
   }
 
-  // man-made kickers
+  // man-made kickers, each with course paint: blue spray thickening toward the jump, a red line on the lip
+  const paintMats = paintMaterials();
   const kickMat = new THREE.MeshLambertMaterial({ color: 0xeef4ff, side: THREE.DoubleSide, flatShading: true });
   for (const f of terrain.kickers) {
     const m = new THREE.Mesh(kickerGeometry(f), kickMat);
     m.position.set(f.x, terrain.naturalHeightAt(f.x, f.z + f.length / 2), f.z);
     m.castShadow = m.receiveShadow = true; scene.add(m);
+    if (f.paint !== false) paintJump(scene, terrain, f, paintMats);
   }
+
+  buildFences(scene, terrain);
 
   let lastBin = null;
   return {

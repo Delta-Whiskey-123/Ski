@@ -19,7 +19,7 @@ Driving the simulation from the console (see `CLAUDE.md`, "Run and check") is th
 - Crash sequence, driven by a `crashT` timer on the rider state inside `rider-physics.js`: input ignored for `crash.tumbleTime` (0.9 s) while she slides on at `crash.slideSpeed` (5 m/s) straight downhill; then she is placed at the nearest piste centre (`terrain.nearestCentre`) at the same `z`, at `ride.minSpeed`, with `crash.graceTime` (1.5 s) of no collisions. No game over, ever.
 - Model: during the tumble, spin the `flip` and `spin` nodes quickly (visual only, in `rider-model.js`); blink the model during grace time.
 - Add hand-placed obstacle types to the level `props` list, each with a model in `js/render/props.js` (instanced, built with `mergeParts`): `sign` (post + coloured board, r 0.4, h 2), `rock` (grey icosahedron half-sunk, r by size, h 1), `fence` (a run of posts and two rails between two points; collide as a line of circles every 1.5 m, h 1.2). Place a few of each on the current test slope so they can be tried.
-- Replace the soft "edge push" as the only boundary: keep it, but trees already line the edge, so no extra work.
+- The red side fences already exist (`terrain.fences`, drawn in `render/props.js`). Make them crash obstacles: collide as a line of circles (r 0.4, every 1.5 m, h 1.7) along each fence. Keep the soft edge push in front of them. The small trees just inside the fence (`small: true` in `terrain.props`) are ordinary crash obstacles with h 3.
 
 **Check:** ride into a tree, a sign and a rock: tumble, respawn on the piste, ride on. Jump clean over a rock and a fence. Fly into a tree mid-air: crash. Landing sideways or mid-spin: no crash.
 
@@ -99,6 +99,7 @@ Rules for placing things:
 - Never put a gate within 30 m before a jump or 40 m after one.
 - Per-path gate spacing: add an optional `gateSpacing` on a path, and generate gates down the main line and Racer's Piste only (extend the generator in `js/terrain.js`).
 - Scenery models in `js/render/props.js`, built in code, all with collision entries: lift pylon (tall post + crossarm, r 0.6, h 12) with cables drawn between consecutive pylons; hut (box + pitched roof, collide as circle r 4, h 5, placed well off the line); banner (two posts + cloth, r on the posts only); finish arch. No people anywhere.
+- Every man-made jump keeps its course paint (automatic for kickers). Rails and boxes get the same blue approach and red line in milestone 6. The red side fences follow the outermost pistes automatically; check they do not cut across a branch.
 - Set `goldTimes` after the layout is final.
 
 **Check:** ride every branch start to finish from the console and by hand: no gaps between pistes, no jump lands in trees, each rejoin is smooth, the run takes roughly 2 minutes. Fps in the tuning panel stays steady along the whole course.

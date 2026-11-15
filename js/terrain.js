@@ -53,6 +53,17 @@ export function createTerrain(level) {
     }
     return cx;
   }
+  // Outermost piste edges at this z (left and right x), or null beyond the pistes.
+  function outerEdges(z) {
+    let left = 1e9, right = -1e9;
+    for (const p of level.paths) {
+      const c = pathAt(p, z);
+      if (c) { left = Math.min(left, c.x - c.w); right = Math.max(right, c.x + c.w); }
+    }
+    return left > right ? null : { left, right };
+  }
+  // The red safety fence runs down both sides of the mountain, this far outside the outermost pistes.
+  const fenceOffset = level.fenceOffset ?? 10;
   const mainAt = (z) => pathAt(level.paths[0], Math.max(level.paths[0].nodes[0].z, Math.min(level.paths[0].nodes.at(-1).z, z)));
 
   // ---- features, bucketed by z so lookups stay cheap
@@ -118,6 +129,19 @@ export function createTerrain(level) {
     for (let gx = bounds.minX; gx < bounds.maxX; gx += CELL) {
       const x = gx + hash2(gx, gz, seed) * CELL, z = gz + hash2(gz, gx, seed + 1) * CELL;
       const out = corridorOut(x, z);
+      if (out < 2.5) continue;
+      const e = outerEdges(z);
+      if (e) {
+        const inside = Math.min(x - (e.left - fenceOffset), (e.right + fenceOffset) - x);   // < 0 is beyond the fence
+        if (Math.abs(inside) < 1.6) continue;                    // keep the fence line itself clear
+        if (inside > 0 && (x < e.left || x > e.right)) {
+          // the strip between the piste and the fence: a few small trees only, as hazards
+          if (hash2(gx * 1.9, gz * 1.1, seed + 5) > (level.fenceTreeDensity ?? 0.14)) continue;
+          const s = 0.45 + hash2(gx, gz, seed + 3) * 0.3;
+          props.push({ type: 'pine', x, z, s, r: 0.5 * s, small: true });
+          continue;
+        }
+      }
       if (out < 4.5) continue;
       if (hash2(gx * 1.7, gz * 1.3, seed + 2) > 0.42 + smooth(out, 4.5, 14) * 0.3) continue;
       const s = 0.8 + hash2(gx, gz, seed + 3) * 0.9;
@@ -137,6 +161,15 @@ export function createTerrain(level) {
     return out;
   }
 
+  // ---- side fences: one line of points down each side of the mountain
+  const fences = [{ side: -1, points: [] }, { side: 1, points: [] }];
+  for (let z = bounds.minZ; z <= bounds.maxZ; z += 5) {
+    const e = outerEdges(z);
+    if (!e) continue;
+    fences[0].points.push({ x: e.left - fenceOffset, z });
+    fences[1].points.push({ x: e.right + fenceOffset, z });
+  }
+
   // ---- slalom gates down the main piste, alternating sides
   const gates = [];
   for (let z = level.start.z + level.gateSpacing, i = 0; z < level.length - 20; z += level.gateSpacing, i++) {
@@ -145,7 +178,7 @@ export function createTerrain(level) {
   }
 
   return {
-    level, bounds, gates, props, binSize: BIN,
+    level, bounds, gates, props, fences, binSize: BIN,
     heightAt, naturalHeightAt, corridorOut, nearestCentre, gradeAt, mainAt, propsBetween,
     kickers: level.features.filter((f) => f.type === 'kicker'),
     edgeWidth: () => T.ride.edgeWidth,

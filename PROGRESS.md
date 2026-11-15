@@ -9,6 +9,8 @@
   - spins from key taps, key hold or finger circles (counted in 180s, capped at 2160); front and back flips from up/down or swipes; landing never punished;
   - trick naming and call-outs; rider stats and equipment feeding the physics as multipliers;
   - 3D view: chunked snow surface, generated forest (instanced), slalom gates, kicker models, long shadows, carved track, spray, landing marker, camera that looks ahead and pulls back in the air;
+  - course paint on man-made jumps (blue spray that thickens over the 16 m before the ramp and up it, red take-off line on the lip), so they read differently from natural jumps;
+  - red safety fencing down both sides of the mountain, with a few small trees just inside it as hazards and the full forest beyond;
   - tuning panel (`` ` `` key or triple-tap the top-left corner) with every gameplay number, saved on the device.
 - Measured from the console on the test slope, riding straight with no input: airs of 0.3 s (roller), 0.75 s (4.5 m ledge), 0.7 s (roller), 1.7 s (big kicker), 1.5 s (12 m ledge). A charged jump pop adds to these.
 
