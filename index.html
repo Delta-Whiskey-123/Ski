@@ -2,16 +2,33 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#16224a">
 <title>Summit Protocol</title>
-<style>body{margin:0;min-height:100vh;display:grid;place-content:center;gap:14px;background:#16224a;color:#fff;font-family:system-ui,sans-serif;text-align:center}
-h1{font:italic 900 34px system-ui,sans-serif;margin:0 0 8px}a{display:block;padding:14px 22px;border-radius:12px;background:#ffe14d;color:#16224a;font-weight:800;text-decoration:none}</style>
+<link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<h1>SUMMIT PROTOCOL</h1>
-<p>Early test pages. The game itself is not built yet.</p>
-<a href="spikes/spike3d.html">Spike A: real 3D</a>
-<a href="spikes/spike2d.html">Spike B: 2D canvas</a>
-<a href="spikes/riders.html">Rider sketches</a>
+<canvas id="view"></canvas>
+
+<!-- In-run display. Menus and the full HUD are added by later milestones. -->
+<div id="hud">
+  <div id="hud-speed"><span id="speed-value">0</span><small id="speed-unit">mph</small></div>
+  <div id="hud-air"></div>
+  <div id="callout"></div>
+  <div id="charge"><i></i></div>
+  <div id="build-note">Core-feel test build · R restarts · ` opens tuning</div>
+</div>
+
+<!-- Touch controls: shown on touch devices only. -->
+<div id="touch">
+  <button class="pad" data-btn="brake" id="btn-brake">BRAKE</button>
+  <button class="pad" data-btn="boost" id="btn-boost">BOOST</button>
+  <button class="pad big" data-btn="jump" id="btn-jump">JUMP</button>
+</div>
+
+<div id="rotate"><div><b>Turn your phone sideways</b><span>Summit Protocol plays in landscape.</span></div></div>
+<div id="debug" hidden></div>
+
+<script type="module" src="js/main.js"></script>
 </body>
 </html>

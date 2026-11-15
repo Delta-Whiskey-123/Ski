@@ -1,0 +1,61 @@
+/* Summit Protocol. System fonts only; animate only transform and opacity. */
+:root {
+  --ink: #16224a;
+  --hot: #ffe14d;
+  --pink: #e5246f;
+  --blue: #2f6fe4;
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --display: italic 900 1em "Arial Black", "Segoe UI Black", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #dfe7f3; font-family: system-ui, sans-serif;
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; overscroll-behavior: none; }
+#view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* ---- in-run display ---- */
+#hud { position: fixed; inset: 0; pointer-events: none; color: #fff; text-shadow: 0 2px 0 rgba(22, 34, 74, .55); }
+#hud-speed { position: absolute; left: calc(14px + var(--safe-l)); bottom: calc(12px + var(--safe-b)); font: var(--display); font-size: 34px; line-height: 1; }
+#hud-speed small { font-size: 14px; margin-left: 4px; }
+#hud-air { position: absolute; right: calc(14px + var(--safe-r)); top: calc(10px + var(--safe-t)); font-weight: 700; font-size: 13px; text-align: right; }
+#callout { position: absolute; left: 0; right: 0; top: 16%; text-align: center; font: var(--display); font-size: clamp(30px, 9vh, 64px);
+  color: var(--hot); -webkit-text-stroke: 2px var(--pink); text-shadow: 0 4px 0 var(--ink); opacity: 0; transform: scale(.6) skewX(-6deg); }
+#callout.show { animation: callout 1.5s ease-out both; }
+@keyframes callout {
+  0% { opacity: 0; transform: scale(.5) skewX(-6deg); }
+  12% { opacity: 1; transform: scale(1.15) skewX(-6deg); }
+  22% { transform: scale(1) skewX(-6deg); }
+  75% { opacity: 1; transform: scale(1) skewX(-6deg); }
+  100% { opacity: 0; transform: scale(1.05) translateY(-12px) skewX(-6deg); }
+}
+#charge { position: absolute; left: 50%; top: 9%; width: 120px; height: 8px; margin-left: -60px; border-radius: 4px; background: rgba(22, 34, 74, .35); opacity: 0; overflow: hidden; }
+#charge i { display: block; height: 100%; width: 100%; background: var(--hot); transform-origin: left; transform: scaleX(0); }
+#build-note { position: absolute; left: calc(14px + var(--safe-l)); top: calc(10px + var(--safe-t)); font-size: 12px; font-weight: 600; opacity: .85; }
+
+/* ---- touch buttons ---- */
+#touch { display: none; position: fixed; right: calc(14px + var(--safe-r)); bottom: calc(14px + var(--safe-b)); gap: 10px; align-items: flex-end; }
+@media (pointer: coarse) { #touch { display: flex; } }
+.pad { width: 68px; height: 68px; border-radius: 50%; border: 3px solid #fff; background: rgba(22, 34, 74, .45); color: #fff;
+  font: var(--display); font-size: 12px; touch-action: none; padding: 0; }
+.pad.big { width: 92px; height: 92px; font-size: 16px; background: rgba(229, 36, 111, .7); }
+.pad.down { transform: scale(.92); background: var(--hot); color: var(--ink); }
+
+/* ---- rotate prompt: phones in portrait ---- */
+#rotate { display: none; position: fixed; inset: 0; background: var(--ink); color: #fff; place-items: center; text-align: center; padding: 24px; z-index: 50; }
+#rotate b { display: block; font: var(--display); font-size: 26px; margin-bottom: 8px; }
+@media (orientation: portrait) and (pointer: coarse) { #rotate { display: grid; } }
+
+/* ---- tuning panel ---- */
+#debug { position: fixed; top: 0; right: 0; bottom: 0; width: min(340px, 90vw); overflow-y: auto; background: rgba(16, 22, 48, .93); color: #fff;
+  font-size: 12px; padding: 10px 12px calc(12px + var(--safe-b)); z-index: 40; touch-action: pan-y; user-select: text; -webkit-user-select: text; }
+#debug h3 { margin: 12px 0 4px; font: var(--display); font-size: 14px; color: var(--hot); text-transform: uppercase; }
+#debug label { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 2px 0; }
+#debug label.changed span { color: var(--hot); }
+#debug input { width: 84px; background: #0b1024; color: #fff; border: 1px solid #44508a; border-radius: 4px; padding: 3px 5px; font: inherit; }
+#debug .bar { display: flex; gap: 6px; flex-wrap: wrap; position: sticky; top: -10px; background: rgba(16, 22, 48, .98); padding: 8px 0; }
+#debug button { background: var(--blue); color: #fff; border: 0; border-radius: 6px; padding: 6px 10px; font: inherit; font-weight: 700; }
+#debug .fps { margin-left: auto; align-self: center; opacity: .8; }
+
+@media (prefers-reduced-motion: reduce) { #callout.show { animation-duration: .01s; opacity: 1; } }
