@@ -48,13 +48,15 @@ export const DEFAULTS = {
     circleStart: 0.9,     // radians of curved finger travel before spin starts counting
   },
   camera: {
-    fov: 46,              // degrees
+    fov: 48,              // degrees
     height: 40,           // above the rider
     back: 17,             // how far downhill of its look point the camera sits
-    lead: 17,             // look point this far downhill of the rider (more = see further ahead)
+    lead: 13,             // look point this far downhill of the rider (more = see further ahead)
     followX: 0.75,        // how much the camera follows sideways (1 = locked)
-    airLift: 1.6,         // extra camera height per metre of rider height
-    airLead: 0.6,         // extra look-ahead per metre of rider height (keeps her and the landing in view)
+    airTrack: 0.85,       // how much the camera aim rises with her in the air (1 = aims at her, 0 = at the ground)
+    airLift: 1.0,         // zoom out: extra camera distance per metre of rider height
+    airCentre: 0.55,      // metres she moves toward the middle of the screen per metre of height
+    minLead: 3,           // never aim closer to her than this
     speedLead: 0.15,      // extra lead per m/s above 15
     smooth: 4,            // camera catch-up speed
   },

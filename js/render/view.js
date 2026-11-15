@@ -47,7 +47,7 @@ export function createView(canvas, terrain, rider, quality = 'high') {
   const model = createRiderModel(rider);
   scene.add(model.root);
 
-  const cam = { x: 0, y: 0, lift: 0, lead: T.camera.lead, ready: false };
+  const cam = { x: 0, y: 0, up: 0, lead: T.camera.lead, ready: false };
 
   function resize() {
     const w = canvas.clientWidth || innerWidth, h = canvas.clientHeight || innerHeight;
@@ -66,13 +66,16 @@ export function createView(canvas, terrain, rider, quality = 'high') {
       const k = cam.ready ? Math.min(1, C.smooth * dt) : 1;
       cam.x += (s.x * C.followX - cam.x) * k;
       cam.y += (groundY - cam.y) * k;
-      cam.lift += (up * C.airLift - cam.lift) * k;
-      cam.lead += (C.lead + Math.max(0, s.speed - 15) * C.speedLead + up * C.airLead - cam.lead) * k;
+      // In the air the aim rises with her, she drifts toward the middle of the screen, and the camera pulls back.
+      cam.up += (up - cam.up) * (cam.ready ? Math.min(1, C.smooth * 2 * dt) : 1);
+      const wantLead = Math.max(C.minLead, C.lead + Math.max(0, s.speed - 15) * C.speedLead - cam.up * C.airCentre);
+      cam.lead += (wantLead - cam.lead) * k;
       cam.ready = true;
       if (camera.fov !== C.fov) { camera.fov = C.fov; camera.updateProjectionMatrix(); }
       const lookZ = s.z + cam.lead;
-      camera.position.set(cam.x, cam.y + C.height + cam.lift, lookZ + C.back);
-      camera.lookAt(cam.x, cam.y, lookZ);
+      const lookY = cam.y + cam.up * C.airTrack, zoom = 1 + (cam.up * C.airLift) / C.height;
+      camera.position.set(cam.x, lookY + C.height * zoom, lookZ + C.back * zoom);
+      camera.lookAt(cam.x, lookY, lookZ);
 
       sun.target.position.set(s.x, groundY, s.z + 10);
       sun.position.set(s.x - 70, groundY + 46, s.z - 22);

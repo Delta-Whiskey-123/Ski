@@ -31,7 +31,7 @@ Milestone 1 in `MILESTONES.md` (crashes and obstacles).
 
 - Touch gestures (circle to spin, swipe to flip) are written but have only been exercised with keyboard events; expect to tune `touch.*`.
 - Frame rate has not been measured on any phone. The preview pane used for development does not run animation continuously, so there is no desktop figure either.
-- How far ahead you can see is limited by the top-to-bottom direction on a wide screen: about 35 m, roughly 1.5 s at top speed. `camera.height`, `camera.lead` and `camera.fov` trade rider size against look-ahead.
+- How far ahead you can see is limited by the top-to-bottom direction on a wide screen: about 30 m, roughly 1.3 s at top speed (the owner asked for the rider to sit lower on screen, about 18 % from the top, which costs a little look-ahead). `camera.height`, `camera.lead` and `camera.fov` trade rider size against look-ahead.
 - Ledge sides and cliff faces are only coloured as rock when steep in the downhill direction.
 - No crashes, scoring, meter, menus or sound yet; trees can be ridden through.
 - The project folder is under `.claude`, which the Claude desktop app will not attach to a session that was started elsewhere. Start sessions directly in the folder.
@@ -43,6 +43,7 @@ Milestone 1 in `MILESTONES.md` (crashes and obstacles).
 - **Natural features are in the snow mesh; man-made ones are separate models,** so kicker lips stay sharp without a very fine terrain grid.
 - **Fixed 120 Hz simulation** so jumps are identical at any frame rate.
 - **Camera downhill of the rider, looking back uphill,** which is what makes her travel top to bottom.
+- **Air camera (owner request):** in the air the camera aim rises with the rider (`camera.airTrack`), she drifts toward the middle of the screen (`camera.airCentre`) and the camera pulls back (`camera.airLift`), so she is always visible, not just her shadow. At 13 m up she sits about 35 % from the top.
 - **Level is fixed and hand-designed; the forest is generated from a seed** so it is the same every run.
 - **Boost is always available** (modest push); adrenaline doubles it. No separate boost fuel.
 - **Run rules fixed by the owner:** par times only (no countdown), a crash loses the unbanked pot and 25 points of meter, adrenaline is fired by the player, level 1 is wild at the top and resort at the bottom, about 2 minutes, speed unit switchable (default mph), equipment as data so skis can come later.
