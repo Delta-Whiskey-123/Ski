@@ -19,7 +19,6 @@ Milestone 1 in `MILESTONES.md` (crashes and obstacles).
 ## Waiting on the owner
 
 - **Rider look:** A (ponytail), B (braid and beanie) or C (loose hair, headband) from `spikes/riders.html`. The current model is a boxy stand-in with a ponytail. Needed before milestone 9.
-- **Scoring model:** the table in milestone 2 was proposed by the architect. Confirm or change before milestone 2 is built.
 - **Phone test** (cannot be checked on desktop):
   1. Does it run smoothly? Open the tuning panel (triple-tap top-left) and read the fps while riding. If it is poor, try adding `?q=medium` or `?q=low` to the address.
   2. Drag to steer: is the 70-pixel range comfortable?
@@ -46,4 +45,5 @@ Milestone 1 in `MILESTONES.md` (crashes and obstacles).
 - **Level is fixed and hand-designed; the forest is generated from a seed** so it is the same every run.
 - **Boost is always available** (modest push); adrenaline doubles it. No separate boost fuel.
 - **Run rules fixed by the owner:** par times only (no countdown), a crash loses the unbanked pot and 25 points of meter, adrenaline is fired by the player, level 1 is wild at the top and resort at the bottom, about 2 minutes, speed unit switchable (default mph), equipment as data so skis can come later.
+- **Scoring model approved by the owner** (2026-11-15) as written in milestone 2. Numbers stay tunable; the shape should not change without asking.
 - **Original rider:** Freya Lindqvist, blonde, blue top, red trousers. Not based on any existing game's character.
