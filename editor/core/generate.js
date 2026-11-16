@@ -177,12 +177,12 @@ function buildBranches(map, S, rng, isWild, notes) {
     const zs = [z0 + R.ramp, ...main.nodes.map((n) => n.z).filter((z) => z > z0 + R.ramp + 30 && z < z1 - R.ramp - 30), z1 - R.ramp];
     const a = pathAt(main, z0), b = pathAt(main, z1);
     const nodes = [
-      { z: z0, x: round(a.x), w: Math.min(a.w, bw + 3) },
+      { z: z0, x: round(a.x), w: round(Math.min(a.w, bw + 3)) },
       ...zs.map((z) => ({ z, x: round(pathAt(main, z).x + side * offsetAt(z)), w: bw })),
-      { z: z1, x: round(b.x), w: Math.min(b.w, bw + 3) },
+      { z: z1, x: round(b.x), w: round(Math.min(b.w, bw + 3)) },
     ];
-    // exact join: the end points sit on the main centre line (unrounded x would be ideal; 0.5 m is inside the rule)
-    nodes[0].x = a.x; nodes.at(-1).x = b.x;
+    // the end points sit on the main centre line, to the centimetre
+    nodes[0].x = round(a.x, 0.01); nodes.at(-1).x = round(b.x, 0.01);
     const names = wild ? WILD_NAMES : RESORT_NAMES;
     let id = names[Math.floor(rng.next() * names.length)];
     for (let n = 2; used.has(id); n++) id = `${id.replace(/\d+$/, '')}${n}`;

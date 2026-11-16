@@ -109,6 +109,8 @@ export function createPanel(root, store) {
       const row = fields({ kind: 'grade', index: i });
       row.classList.add('row');
       for (const input of row.querySelectorAll('input')) { input.id += `-${i}`; input.dataset.key += `-${i}`; }
+      const [from, grade] = row.querySelectorAll('span');
+      if (from && grade) { from.textContent = 'from z (m)'; grade.textContent = 'steepness'; }
       box.append(row);
     });
     box.append(el('p', { className: 'note', textContent: `${map.paths.length} piste(s), ${map.features.length} features, ${map.gates.length} gates, ${map.scenery.length} scenery, ${map.objects.length} objects, ${map.props.length} hand-placed props.${gen ? ` Generated from seed ${gen.seed} (length ${gen.length}, difficulty ${gen.difficulty}, branches ${gen.branches}, jump density ${gen.jumpDensity}).` : ''}` }));

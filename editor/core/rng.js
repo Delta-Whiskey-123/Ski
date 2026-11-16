@@ -21,4 +21,5 @@ export function createRng(seed) {
 }
 
 // Round to a sensible number of decimals so map files stay readable.
-export const round = (v, step = 0.5) => Math.round(v / step) * step;
+// (The second rounding removes binary dust such as 1.2000000000000002.)
+export const round = (v, step = 0.5) => Math.round(Math.round(v / step) * step * 1e6) / 1e6;
