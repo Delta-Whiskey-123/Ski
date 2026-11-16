@@ -25,17 +25,49 @@ function noise(x, y, seed) {
   return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v - 0.5;
 }
 
+// Centre x and half-width of one piste at this z, or null above its first node
+// or below its last. Exported so the map editor measures pistes the same way.
+export function pathAt(path, z) {
+  const n = path.nodes;
+  if (z < n[0].z || z > n[n.length - 1].z) return null;
+  let i = 0; while (i < n.length - 2 && z > n[i + 1].z) i++;
+  const a = n[i], b = n[i + 1], t = smooth(z, a.z, b.z);
+  return { x: a.x + (b.x - a.x) * t, w: a.w + (b.w - a.w) * t };
+}
+
+// The stretch of slope a jump occupies, [z0, z1], or null for a roller (not
+// counted as a jump when placing gates).
+export function jumpZone(f) {
+  if (f.type === 'roller') return null;
+  return f.type === 'ledge' ? [f.z - 12, f.z + f.run] : [f.z, f.z + f.length];
+}
+
+// Slalom gates down every piste, alternating sides, skipping the stretch
+// around each jump. A gate belongs to its piste: it only counts for a rider
+// who is on that piste when she reaches it. Returned unsorted, without index.
+export function generateGates(level) {
+  const nearJump = (x, z) => level.features.some((f) => {
+    const zone = jumpZone(f);
+    if (!zone) return false;
+    return z > zone[0] - 30 && z < zone[1] + 45 && Math.abs(x - f.x) < f.width / 2 + 8;
+  });
+  const gates = [];
+  level.paths.forEach((p, pi) => {
+    const spacing = p.gateSpacing || level.gateSpacing;
+    const from = pi === 0 ? level.start.z + spacing : p.nodes[0].z + 40;
+    const to = pi === 0 ? level.length - 25 : p.nodes.at(-1).z - 40;
+    for (let z = from, n = 0; z < to; z += spacing, n++) {
+      const c = pathAt(p, z), side = n % 2 ? 1 : -1, x = c.x + side * Math.min(c.w * 0.4, 6);
+      if (!nearJump(x, z)) gates.push({ x, z, red: n % 2 === 0, path: p.id });
+    }
+  });
+  return gates;
+}
+
 export function createTerrain(level) {
   const seed = level.seed || 1;
 
   // ---- pistes
-  function pathAt(path, z) {
-    const n = path.nodes;
-    if (z < n[0].z || z > n[n.length - 1].z) return null;
-    let i = 0; while (i < n.length - 2 && z > n[i + 1].z) i++;
-    const a = n[i], b = n[i + 1], t = smooth(z, a.z, b.z);
-    return { x: a.x + (b.x - a.x) * t, w: a.w + (b.w - a.w) * t };
-  }
   function corridorOut(x, z) {
     let best = 1e9;
     for (const p of level.paths) {
@@ -183,23 +215,9 @@ export function createTerrain(level) {
     fences[1].points.push({ x: e.right + fenceOffset, z });
   }
 
-  // ---- slalom gates down every piste, alternating sides. A gate belongs to
-  // its piste: it only counts for a rider who is on that piste when she reaches it.
-  const nearJump = (x, z) => level.features.some((f) => {
-    if (f.type === 'roller') return false;
-    const z0 = f.type === 'ledge' ? f.z - 12 : f.z, z1 = f.type === 'ledge' ? f.z + f.run : f.z + f.length;
-    return z > z0 - 30 && z < z1 + 45 && Math.abs(x - f.x) < f.width / 2 + 8;
-  });
-  const gates = [];
-  level.paths.forEach((p, pi) => {
-    const spacing = p.gateSpacing || level.gateSpacing;
-    const from = pi === 0 ? level.start.z + spacing : p.nodes[0].z + 40;
-    const to = pi === 0 ? level.length - 25 : p.nodes.at(-1).z - 40;
-    for (let z = from, n = 0; z < to; z += spacing, n++) {
-      const c = pathAt(p, z), side = n % 2 ? 1 : -1, x = c.x + side * Math.min(c.w * 0.4, 6);
-      if (!nearJump(x, z)) gates.push({ x, z, red: n % 2 === 0, path: p.id });
-    }
-  });
+  // ---- slalom gates: generated from the pistes (generateGates above), unless
+  // the level carries its own final list (`gates`, written by the map editor).
+  const gates = level.gates ? level.gates.map((g) => ({ ...g })) : generateGates(level);
   gates.sort((a, b) => a.z - b.z);
   gates.forEach((g, n) => { g.index = n; });
 
