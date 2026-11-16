@@ -6,6 +6,7 @@
 import * as THREE from '../../vendor/three.module.min.js';
 import { mergeParts, place, paint } from './geo.js';
 import { hash2 } from '../terrain.js';
+import { SCENERY_TYPES } from '../data/scenery.js';
 
 const WOOD = 0x8a5c3c, WOOD_D = 0x6b4329, METAL = 0x8d939c, ROOF_EDGE = 0x5e3f2b;
 const SNOW = 0xf3f6fb, SNOW_S = 0xe3e9f3, COAL = 0x1b1d22;
@@ -252,10 +253,11 @@ export function createScenery(scene, terrain) {
       g.add(mesh(mergeParts(snowmanParts(big, r)), wood));
       debris = mesh(mergeParts(debrisParts(big, r)), wood);
     } else return null;
-    const y = terrain.heightAt(item.x, item.z) - 0.05;
-    g.position.set(item.x, y, item.z);
+    const k = SCENERY_TYPES[item.type]?.scale ?? 1;
+    const y = terrain.heightAt(item.x, item.z) - 0.05 * k;
+    g.position.set(item.x, y, item.z); g.scale.setScalar(k);
     scene.add(g);
-    if (debris) { debris.position.set(item.x, y, item.z); debris.visible = false; scene.add(debris); }
+    if (debris) { debris.position.set(item.x, y, item.z); debris.scale.setScalar(k); debris.visible = false; scene.add(debris); }
     return { item, model: g, debris };
   });
 
