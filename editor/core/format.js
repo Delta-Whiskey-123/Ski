@@ -26,17 +26,18 @@ export const FEATURE_FIELDS = {
 export const MIGRATIONS = {};
 
 // Bring a parsed file up to MAP_VERSION. Returns { map, errors, migratedFrom }.
-export function migrateMap(raw) {
+// (The second argument exists so tests can exercise the hook with pretend versions.)
+export function migrateMap(raw, { version: target = MAP_VERSION, migrations = MIGRATIONS } = {}) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { map: null, errors: [err('', 'The file is not a map (it should be one JSON object).')] };
   if (raw.format !== MAP_FORMAT) return { map: null, errors: [err('format', `This is not a Summit Protocol map: "format" should be "${MAP_FORMAT}".`)] };
   if (!Number.isInteger(raw.version) || raw.version < 1) return { map: null, errors: [err('version', '"version" should be a whole number, 1 or more.')] };
-  if (raw.version > MAP_VERSION) {
-    return { map: null, errors: [err('version', `This map is version ${raw.version}; this editor only understands up to version ${MAP_VERSION}. Use a newer editor.`)] };
+  if (raw.version > target) {
+    return { map: null, errors: [err('version', `This map is version ${raw.version}; this editor only understands up to version ${target}. Use a newer editor.`)] };
   }
   let map = raw;
   const migratedFrom = raw.version;
-  while (map.version < MAP_VERSION) {
-    const step = MIGRATIONS[map.version];
+  while (map.version < target) {
+    const step = migrations[map.version];
     if (!step) return { map: null, errors: [err('version', `No migration from version ${map.version} is known.`)] };
     map = step(map);
   }
@@ -192,7 +193,6 @@ export function stringify(value, { js = false, indent = '' } = {}) {
     const next = `${ind}  `;
     if (Array.isArray(v)) return `[\n${v.map((x) => next + walk(x, next)).join(',\n')}\n${ind}]`;
     const entries = Object.entries(v).filter(([, x]) => x !== undefined);
-    // a piste: keep its points one per line
     return `{\n${entries.map(([k, x]) => `${next}${key(k)}: ${walk(x, next)}`).join(',\n')}\n${ind}}`;
   };
   return walk(value, indent);
