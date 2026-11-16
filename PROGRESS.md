@@ -22,6 +22,8 @@
 - **Settings > Controls (owner request, 2026-11-15).** Two views: Mobile (gesture guide) and Web browser (key list, remappable in js/settings.js: one key per action, a duplicate swaps the two, number pad and function keys refused, Reset to defaults). Defaults: arrows, Space, Left Shift for adrenaline, Esc pause, R restart. WASD is no longer bound by default.
 - **Adrenaline button** is a small circle joined under the meter; red and pulsing when full. Adrenaline lasts 7 s (was 8). Remapping and Left Shift were verified from the console; the circle was NOT verified with a real touch, and the red pulsing was not seen in a screenshot.
 
+- **Breakable scenery (owner request, 2026-11-16, look approved from `spikes/scenery.html`).** Trail direction post, trail map board, caution sign (cliff symbol, no words), small and big snowman, built in code. Hitting one breaks it and cuts her speed once: signs 15 %, small snowman 20 %, big snowman 25 % (`scenery` group in `tuning.js`). Signs vanish; snowmen leave snow chunks and their scarf. Jumping higher than a piece clears it. Everything comes back at the next run. 14 pieces placed on the test slope (`scenery` in `level1.js`). Checked from the console: the 20 % and 15 % cuts, a hit 1 m up in the air, a clean pass 3 m over the big snowman, and the models and debris in the game view at 812x375. Not played by hand on a phone.
+
 ## Next
 
 Milestone 1 in `MILESTONES.md` (crashes and obstacles).
@@ -41,6 +43,8 @@ Milestone 1 in `MILESTONES.md` (crashes and obstacles).
 - Frame rate has not been measured on any phone. The preview pane used for development does not run animation continuously, so there is no desktop figure either.
 - How far ahead you can see is limited by the top-to-bottom direction on a wide screen: about 30 m, roughly 1.3 s at top speed (the owner asked for the rider to sit lower on screen, about 18 % from the top, which costs a little look-ahead). `camera.height`, `camera.lead` and `camera.fov` trade rider size against look-ahead.
 - Ledge sides and cliff faces are only coloured as rock when steep in the downhill direction.
+- Breakable scenery is real-life size, so from the game camera the snowmen are only about 10 pixels tall next to the 1.75× rider. Ask the owner whether to scale it up after they play it.
+- "For 2 seconds" in the scenery request: the owner chose a one-off speed cut and that a second hit restarts the timer, so the 2 seconds has no separate effect; every hit simply cuts speed by its own amount.
 - No crashes, scoring, settings screen or sound yet; trees and fences can be ridden through.
 - Race medal times (36 / 41 / 48 s) are placeholders for the short test slope. A straight no-steering run takes 37.9 s and misses 9 of 11 gates.
 - Gates are 4.8 m wide (`race.gateHalfWidth` 2.4). Whether that is the right difficulty at speed needs the owner's play-testing.
@@ -61,4 +65,5 @@ Milestone 1 in `MILESTONES.md` (crashes and obstacles).
 - **Scoring model approved by the owner** (2026-11-15) as written in milestone 2. Numbers stay tunable; the shape should not change without asking.
 - **Rider look chosen by the owner (2026-11-15): A, high ponytail with goggles pushed up** (see `spikes/riders.html`). Milestone 9 builds this; the stand-in already has a ponytail.
 - **Modes (owner, 2026-11-15):** menu order Title > Mode > Level > Rider; Race has no points, tricks only charge the meter; gates on every branch; Tricks Run keeps the approved speed bonus and gate multiplier; Race results show best time plus medal targets.
+- **Breakable scenery (owner, 2026-11-16):** symbols only on signs (no words); caution sign without the flag poles; real-life size; trail post arrows point a random way per post; snowmen break into chunks, signs just vanish; a hit is a one-off speed cut; jumping high enough clears a piece; placement hand-made as level data. Breakables are separate from milestone 1's crash obstacles.
 - **Original rider:** Freya Lindqvist, blonde, blue top, red trousers. Not based on any existing game's character.

@@ -137,5 +137,13 @@ function stepAir(s, dt, inp, terrain, stats, mods, events) {
   }
 }
 
+// A one-off loss of speed (hitting breakable scenery). cut = fraction lost.
+// Never below the minimum riding speed; in the air it slows her travel.
+export function slowDown(s, cut) {
+  const k = 1 - cut;
+  s.speed = Math.max(T.ride.minSpeed, s.speed * k);
+  if (s.air) { s.vx *= k; s.vz *= k; }
+}
+
 // remainder of a after removing whole multiples of m, in the range -m/2..m/2
 function wrap(a, m) { return a - Math.round(a / m) * m; }

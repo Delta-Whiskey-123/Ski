@@ -53,19 +53,23 @@ Touch gestures, multi-touch and real phone frame rate cannot be verified on desk
 | `js/gates.js` | Watches the rider pass or miss slalom gates. Pure logic. |
 | `js/meter.js` | The power meter and adrenaline. Pure logic; supplies `mods()` to the physics. |
 | `js/run.js` | One run: clock, gate counts, Race penalties, result and medal. Pure logic. |
+| `js/scenery.js` | Breakable scenery: watches the rider hit signs and snowmen, returns `break` events. Pure logic. |
 | `js/save.js` | Best results and last menu choices in `localStorage` (versioned). |
 | `js/ui.js` | Menu screens: title, mode, level, rider, pause, results. Shows screens and reports choices only. |
 | `js/data/modes.js` | The two modes (Race, Tricks Run) as menu data. |
 | `js/data/levels/index.js` | The six level slots for level select. |
 | `js/data/levels/level1.js` | Level 1 as data. |
 | `js/data/riders.js` | Riders, equipment, and stat-to-multiplier mapping. |
+| `js/data/scenery.js` | Breakable scenery types: hit shape, height, which slow-down value. |
 | `js/data/tricks.js` | Trick names (and, later, values). |
 | `js/render/view.js` | Renderer, light, camera, quality presets. |
 | `js/render/terrain-mesh.js` | Snow surface in chunks around the rider. |
 | `js/render/props.js` | Trees and gates (instanced), man-made jump models. |
+| `js/render/scenery.js` | Breakable scenery models (trail post, trail map, caution sign, snowmen) and snowman debris. |
 | `js/render/rider-model.js` | The rider model, built from boxes. |
 | `js/render/effects.js` | Carved track, powder spray, landing marker. Visual only. |
 | `js/render/geo.js` | Geometry helpers (`mergeParts`, `place`). |
+| `spikes/scenery.html` | Approved look of the breakable scenery (reference). |
 | `spikes/riders.html` | Rider look sketches (reference until the look is final). |
 | `tools/serve.mjs` | Dev-only static server. Not part of the game. |
 
@@ -89,6 +93,7 @@ Keep the separation: `input.js` reports, `rider-physics.js` decides, `render/*` 
 ## Adding things
 
 - **A level:** copy `js/data/levels/level1.js`. `paths` are pistes (centre line + half-width, top to bottom; a branch must start and end on top of another path). `features` are `roller`, `ledge` (natural) and `kicker` (man-made). `grades` set steepness per stretch. The forest, the slalom gates and the red side fences are generated from the paths. Optional level fields: `fenceOffset` (metres from the outermost piste edge to the fence, default 10) and `fenceTreeDensity` (how many small hazard trees grow between piste and fence, default 0.14). Every kicker gets course paint (blue spray thickening toward the jump, red line on the lip) unless it has `paint: false`; natural jumps are never painted. Register it in `js/data/levels/index.js` and give it `race: { gold, silver, bronze }` medal times. (The world is currently built once at start-up for level 1; `main.js` must rebuild terrain and view when a second level exists.)
+- **Breakable scenery:** add `{ type, x, z }` to the level's `scenery` list (types in `js/data/scenery.js`: `trailpost`, `trailmap`, `caution`, `snowman-small`, `snowman-big`; a trail post may take `dirs: [1, -1, 1]`, else its arrows point at random). These are not crash obstacles: a hit breaks the piece and cuts her speed once by `scenery.slow*` in `tuning.js`; flying higher than the piece clears it. Keep them off jump landings.
 - **A rider:** add an object to `RIDERS` in `js/data/riders.js` (stats 1 to 10, colours, look).
 - **Equipment (e.g. skis later):** add to `EQUIPMENT` with a `kind`; the model and stance for a new kind go in `js/render/rider-model.js`.
 - **A trick name:** `js/data/tricks.js`.

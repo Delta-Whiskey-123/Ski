@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scenery sketches</title>
+<style>
+  html,body{margin:0;background:#ececef;font-family:system-ui,sans-serif;color:#1b2444}
+  h1{margin:0;padding:18px 20px 0;font:italic 900 24px system-ui,sans-serif}
+  p.lead{margin:4px 20px 0;opacity:.75;font-size:14px}
+  .card{margin:16px 20px;background:#f6f6f8;border-radius:16px;padding:12px 14px 14px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+  .card h2{margin:0 0 2px;font-size:17px}
+  .card small{opacity:.75;font-size:13px}
+  .views{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+  figure{margin:0;flex:1 1 260px;max-width:440px}
+  figure img{width:100%;display:block;border-radius:10px;background:#e9e9ec}
+  figcaption{font-size:12px;opacity:.7;margin-top:3px;text-align:center}
+  .wide figure{max-width:none}
+</style>
+</head>
+<body>
+<h1>SUMMIT PROTOCOL · scenery sketches</h1>
+<p class="lead">Breakable scenery built in code, as it would be in the game. Each prop is shown from the game camera's angle (looking down at about 67°) and from the front.</p>
+<div id="out"></div>
+<script type="module">
+import * as THREE from '../vendor/three.module.min.js';
+import { RIDERS } from '../js/data/riders.js';
+import { createRiderModel } from '../js/render/rider-model.js';
+
+// ---------- small helpers
+let seed = 7;
+const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+const mats = new Map();
+const mat = (c) => { if (!mats.has(c)) mats.set(c, new THREE.MeshLambertMaterial({ color: c, flatShading: true })); return mats.get(c); };
+function mesh(parent, geo, color, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, s = null) {
+  const m = new THREE.Mesh(geo, typeof color === 'number' ? mat(color) : color);
+  m.position.set(x, y, z); m.rotation.set(rx, ry, rz);
+  if (s) m.scale.set(...s);
+  m.castShadow = true; m.receiveShadow = true; parent.add(m); return m;
+}
+function canvasTex(w, h, draw) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+// sign faces glow a little so they stay readable when the low sun is behind them
+const texMat = (tex, transparent = false) => new THREE.MeshLambertMaterial({ map: tex, transparent, alphaTest: transparent ? 0.3 : 0, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.35 });
+const faceMat = (c) => new THREE.MeshLambertMaterial({ color: c, emissive: c, emissiveIntensity: 0.35, flatShading: true });
+const WOOD = 0x8a5c3c, WOOD_D = 0x6b4329, WOOD_L = 0xa3714b, METAL = 0x8d939c;
+const SNOW = 0xf3f6fb, SNOW_S = 0xe3e9f3;
+
+function log(parent, r, len, x, y, z, horizontal = false) {
+  const g = new THREE.CylinderGeometry(r, r * 1.06, len, 7);
+  return mesh(parent, g, WOOD, x, y, z, 0, horizontal ? 0 : 0.3, horizontal ? Math.PI / 2 : 0);
+}
+
+// ---------- 1. trail direction post (arrows pointing a random way each)
+function arrowShape(len, h, tip, dir) {
+  const s = new THREE.Shape(), d = dir;
+  s.moveTo(0, -h / 2); s.lineTo(d * len, -h / 2); s.lineTo(d * (len + tip), 0); s.lineTo(d * len, h / 2); s.lineTo(0, h / 2); s.closePath();
+  return s;
+}
+function symbolTex(kind) {
+  return canvasTex(128, 128, (g) => {
+    g.strokeStyle = '#fff'; g.lineWidth = 13; g.lineJoin = 'round';
+    if (kind === 'circle') { g.beginPath(); g.arc(64, 64, 42, 0, Math.PI * 2); g.stroke(); }
+    if (kind === 'square') g.strokeRect(24, 24, 80, 80);
+    if (kind === 'diamond') { g.beginPath(); g.moveTo(64, 14); g.lineTo(114, 64); g.lineTo(64, 114); g.lineTo(14, 64); g.closePath(); g.stroke(); }
+  });
+}
+function directionPost(dirs = [1, -1, 1]) {
+  const root = new THREE.Group();
+  log(root, 0.11, 2.7, 0, 1.35, 0);
+  mesh(root, new THREE.CylinderGeometry(0.115, 0.11, 0.06, 7), WOOD_D, 0, 2.72, 0, 0, 0.3);
+  const rows = [
+    { y: 2.3, color: 0x4fae4a, sym: 'circle' },
+    { y: 1.92, color: 0x3d7cc9, sym: 'square' },
+    { y: 1.54, color: 0x23262d, sym: 'diamond' },
+  ];
+  rows.forEach((r, i) => {
+    const d = dirs[i];
+    const frame = new THREE.ExtrudeGeometry(arrowShape(1.05, 0.3, 0.2, d), { depth: 0.05, bevelEnabled: false });
+    mesh(root, frame, WOOD_D, -d * 0.06, r.y, 0.11);
+    const face = new THREE.ExtrudeGeometry(arrowShape(0.98, 0.23, 0.15, d), { depth: 0.02, bevelEnabled: false });
+    mesh(root, face, faceMat(r.color), -d * 0.025, r.y, 0.155);
+    const sym = new THREE.Mesh(new THREE.PlaneGeometry(0.17, 0.17), texMat(symbolTex(r.sym), true));
+    sym.position.set(d * 0.2, r.y, 0.178); root.add(sym);
+    for (const dy of [-0.1, 0.1]) mesh(root, new THREE.BoxGeometry(0.05, 0.035, 0.09), METAL, d * 0.06, r.y + dy, 0.13);   // brackets
+  });
+  return root;
+}
+
+// ---------- 2. trail map board with shingle roof
+function mapTex() {
+  return canvasTex(512, 320, (g, w, h) => {
+    g.fillStyle = '#efe9da'; g.fillRect(0, 0, w, h);
+    // mountain
+    g.fillStyle = '#b8a38c';
+    g.beginPath(); g.moveTo(0, 270); g.lineTo(70, 120); g.lineTo(150, 170); g.lineTo(256, 34); g.lineTo(350, 140); g.lineTo(430, 90); g.lineTo(512, 200); g.lineTo(512, 320); g.lineTo(0, 320); g.fill();
+    g.fillStyle = '#9c876f';
+    g.beginPath(); g.moveTo(256, 34); g.lineTo(350, 140); g.lineTo(512, 220); g.lineTo(512, 320); g.lineTo(300, 320); g.fill();
+    g.fillStyle = '#ffffff';
+    g.beginPath(); g.moveTo(40, 300); g.bezierCurveTo(60, 200, 160, 120, 256, 60); g.bezierCurveTo(350, 120, 450, 200, 470, 300); g.fill();
+    g.fillStyle = '#dfe6ef';
+    g.beginPath(); g.moveTo(256, 60); g.bezierCurveTo(350, 120, 450, 200, 470, 300); g.lineTo(330, 300); g.fill();
+    // runs from the summit down
+    const run = (col, pts, wd = 6) => { g.strokeStyle = col; g.lineWidth = wd; g.lineCap = 'round'; g.beginPath(); g.moveTo(...pts[0]); g.bezierCurveTo(...pts[1], ...pts[2], ...pts[3]); g.stroke(); };
+    // runs wind down from the summit, splitting and rejoining like real pistes
+    run('#45a447', [[248, 70], [150, 120], [90, 200], [150, 250]]);
+    run('#45a447', [[150, 250], [190, 280], [210, 286], [236, 294]]);
+    run('#3d7cc9', [[252, 70], [200, 130], [230, 190], [180, 240]]);
+    run('#3d7cc9', [[180, 240], [160, 262], [220, 280], [244, 294]]);
+    run('#d7392f', [[256, 66], [280, 120], [230, 180], [262, 292]]);
+    run('#23262d', [[262, 70], [330, 110], [300, 160], [340, 200]], 5);
+    run('#23262d', [[340, 200], [370, 230], [300, 260], [276, 294]], 5);
+    run('#3d7cc9', [[266, 72], [360, 100], [430, 170], [400, 230]]);
+    run('#3d7cc9', [[400, 230], [380, 262], [320, 280], [290, 294]]);
+    // run markers
+    const mark = (kind, x, y, col) => {
+      g.fillStyle = col; g.strokeStyle = '#fff'; g.lineWidth = 3;
+      g.beginPath();
+      if (kind === 'c') g.arc(x, y, 9, 0, 7);
+      if (kind === 's') g.rect(x - 8, y - 8, 16, 16);
+      if (kind === 'd') { g.moveTo(x, y - 11); g.lineTo(x + 11, y); g.lineTo(x, y + 11); g.lineTo(x - 11, y); g.closePath(); }
+      g.fill(); g.stroke();
+    };
+    mark('c', 104, 186, '#45a447'); mark('s', 214, 170, '#3d7cc9'); mark('s', 420, 180, '#3d7cc9');
+    mark('d', 318, 150, '#23262d'); mark('s', 250, 200, '#d7392f');
+    // summit flag and base buildings
+    g.fillStyle = '#7a4a2c'; g.beginPath(); g.moveTo(252, 30); g.lineTo(252, 12); g.lineTo(268, 18); g.lineTo(256, 23); g.lineTo(256, 30); g.fill();
+    g.fillStyle = '#6e4a32';
+    for (const x of [214, 248, 282]) { g.fillRect(x, 296, 22, 14); g.beginPath(); g.moveTo(x - 3, 297); g.lineTo(x + 11, 287); g.lineTo(x + 25, 297); g.fill(); }
+  });
+}
+function shingleTex() {
+  const t = canvasTex(256, 128, (g, w, h) => {
+    g.fillStyle = '#7d5d47'; g.fillRect(0, 0, w, h);
+    const rows = 6, rh = h / rows;
+    for (let r = 0; r < rows; r++) {
+      const off = (r % 2) * 16;
+      for (let x = -32 + off; x < w; x += 32) {
+        const l = 0.85 + rnd() * 0.3;
+        g.fillStyle = `rgb(${150 * l},${116 * l},${92 * l})`;
+        g.fillRect(x + 1, r * rh + 1, 30, rh - 2);
+      }
+      g.fillStyle = 'rgba(60,40,28,.55)'; g.fillRect(0, r * rh + rh - 3, w, 3);
+    }
+  });
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1.6, 0.5);
+  return t;
+}
+function iconTex() {
+  return canvasTex(256, 64, (g, w, h) => {
+    g.fillStyle = '#6b4329'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#f3ead6';
+    g.beginPath(); g.moveTo(92, 52); g.lineTo(118, 14); g.lineTo(132, 32); g.lineTo(142, 22); g.lineTo(164, 52); g.fill();
+    g.fillStyle = '#6b4329'; g.beginPath(); g.moveTo(110, 26); g.lineTo(118, 14); g.lineTo(126, 26); g.lineTo(118, 22); g.fill();
+  });
+}
+function trailMap() {
+  const root = new THREE.Group();
+  for (const x of [-1.3, 1.3]) log(root, 0.13, 3.0, x, 1.5, 0);
+  log(root, 0.1, 3.2, 0, 2.6, 0.06, true);
+  log(root, 0.1, 3.1, 0, 0.72, 0.1, true);
+  // board
+  mesh(root, new THREE.BoxGeometry(2.3, 1.45, 0.1), WOOD_D, 0, 1.62, 0.02);
+  const map = new THREE.Mesh(new THREE.PlaneGeometry(2.12, 1.3), texMat(mapTex()));
+  map.position.set(0, 1.62, 0.075); map.receiveShadow = true; root.add(map);
+  // title plank (mountain icon instead of words)
+  const plank = mesh(root, new THREE.BoxGeometry(1.05, 0.28, 0.06), [mat(WOOD_D), mat(WOOD_D), mat(WOOD_D), mat(WOOD_D), texMat(iconTex()), mat(WOOD_D)], 0, 2.6, 0.18);
+  plank.castShadow = true;
+  // roof: two shingled slopes and a ridge cap
+  const shingle = texMat(shingleTex()), edge = mat(0x5e3f2b);
+  const roofMats = [edge, edge, shingle, edge, edge, edge];
+  mesh(root, new THREE.BoxGeometry(3.4, 0.07, 0.46), roofMats, 0, 3.1, 0.2, 0.45);
+  mesh(root, new THREE.BoxGeometry(3.4, 0.07, 0.46), roofMats, 0, 3.1, -0.2, -0.45);
+  mesh(root, new THREE.BoxGeometry(3.45, 0.08, 0.12), 0x5e3f2b, 0, 3.2, 0);
+  mesh(root, new THREE.BoxGeometry(3.4, 0.1, 0.06), WOOD_D, 0, 2.99, 0.41, 0.45);   // front fascia
+  return root;
+}
+
+// ---------- 3. caution sign (cliff warning, symbol only)
+function cautionTex() {
+  return canvasTex(256, 256, (g) => {
+    g.strokeStyle = '#1b1b1b'; g.fillStyle = '#1b1b1b'; g.lineWidth = 14; g.lineJoin = 'round'; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(128, 22); g.lineTo(236, 214); g.lineTo(20, 214); g.closePath(); g.stroke();
+    // cliff edge
+    g.beginPath(); g.moveTo(52, 200); g.lineTo(52, 150); g.lineTo(122, 150); g.lineTo(150, 200); g.closePath(); g.fill();
+    // falling person
+    g.lineWidth = 9;
+    g.beginPath(); g.arc(150, 96, 12, 0, 7); g.fill();
+    g.beginPath(); g.moveTo(144, 110); g.lineTo(166, 140); g.moveTo(155, 124); g.lineTo(182, 112); g.moveTo(155, 124); g.lineTo(134, 112);
+    g.moveTo(166, 140); g.lineTo(186, 150); g.moveTo(166, 140); g.lineTo(160, 166); g.stroke();
+    // falling rocks
+    for (const [x, y, r] of [[186, 176, 7], [200, 196, 6], [176, 196, 5]]) { g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
+  });
+}
+function pentagon(w, hRect, hTop) {
+  const s = new THREE.Shape();
+  s.moveTo(-w / 2, 0); s.lineTo(w / 2, 0); s.lineTo(w / 2, hRect); s.lineTo(0, hRect + hTop); s.lineTo(-w / 2, hRect); s.closePath();
+  return s;
+}
+function cautionSign() {
+  const root = new THREE.Group();
+  log(root, 0.11, 2.45, 0, 1.22, 0);
+  mesh(root, new THREE.ExtrudeGeometry(pentagon(0.86, 0.42, 0.42), { depth: 0.04, bevelEnabled: false }), 0x1d1d1d, 0, 1.42, 0.11);
+  mesh(root, new THREE.ExtrudeGeometry(pentagon(0.78, 0.4, 0.38), { depth: 0.02, bevelEnabled: false }), faceMat(0xf5cf1c), 0, 1.45, 0.15);
+  const sym = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.6), texMat(cautionTex(), true));
+  sym.position.set(0, 1.78, 0.172); root.add(sym);
+  for (const dy of [0.12, 0.6]) mesh(root, new THREE.BoxGeometry(0.06, 0.035, 0.09), METAL, 0, 1.42 + dy, 0.12);
+  return root;
+}
+
+// ---------- 4 & 5. snowmen, intact and broken
+function ball(parent, r, y) {
+  const m = mesh(parent, new THREE.IcosahedronGeometry(r, 1), SNOW, 0, y, 0, rnd(), rnd(), rnd(), [1, 0.94, 1]);
+  return m;
+}
+const onSphere = (r, cy, up, side = 0) => [Math.sin(side) * r * Math.cos(up), cy + Math.sin(up) * r, Math.cos(side) * Math.cos(up) * r];
+function face(root, r, cy) {
+  for (const sx of [-0.33, 0.33]) mesh(root, new THREE.BoxGeometry(0.045, 0.045, 0.03), 0x1b1d22, ...onSphere(r * 0.98, cy, 0.25, sx));
+  const [x, y, z] = onSphere(r, cy, 0, 0);
+  mesh(root, new THREE.ConeGeometry(0.05, r * 1.0, 6), 0xf08a24, x, y, z + r * 0.45, Math.PI / 2);
+  for (let i = -2; i <= 2; i++) mesh(root, new THREE.BoxGeometry(0.03, 0.03, 0.02), 0x1b1d22, ...onSphere(r * 0.97, cy, -0.42 + Math.abs(i) * 0.07, i * 0.16));   // smile
+}
+function buttons(root, r, cy) {
+  for (const up of [0.45, 0.05, -0.35]) mesh(root, new THREE.IcosahedronGeometry(0.035, 0), 0x1b1d22, ...onSphere(r * 0.98, cy, up));
+}
+function scarf(root, rNeck, y, colorA, colorB) {
+  mesh(root, new THREE.TorusGeometry(rNeck, 0.065, 5, 12), colorA, 0, y, 0, Math.PI / 2);
+  // hanging tail, striped
+  for (let i = 0; i < 5; i++) {
+    const c = colorB && i % 2 ? colorB : colorA;
+    mesh(root, new THREE.BoxGeometry(0.13, 0.08, 0.04), c, 0.12 + i * 0.012, y - 0.06 - i * 0.08, rNeck + 0.02 - i * 0.01, -0.15, 0, 0.12);
+  }
+}
+function twigArm(root, side, x, y) {
+  const g = new THREE.CylinderGeometry(0.014, 0.02, 0.55, 5);
+  const a = mesh(root, g, 0x5a3d28, x + side * 0.24, y + 0.12, 0, 0, 0, -side * 1.05);
+  const tw = new THREE.CylinderGeometry(0.01, 0.012, 0.16, 4);
+  mesh(root, tw, 0x5a3d28, x + side * 0.44, y + 0.3, 0, 0, 0, -side * 0.3);
+  return a;
+}
+function stickArmMitten(root, side, x, y) {
+  mesh(root, new THREE.CylinderGeometry(0.022, 0.03, 0.62, 5), 0x6b4a30, x + side * 0.28, y - 0.1, 0.02, 0, 0, side * 1.15);
+  mesh(root, new THREE.IcosahedronGeometry(0.085, 0), 0x9a7b5c, x + side * 0.56, y - 0.24, 0.03, 0, 0, 0, [1, 1.15, 0.8]);
+  mesh(root, new THREE.CylinderGeometry(0.06, 0.06, 0.05, 6), 0xd9d2c4, x + side * 0.5, y - 0.18, 0.03, 0, 0, side * 1.15);
+}
+function smallSnowman() {
+  const root = new THREE.Group();
+  ball(root, 0.36, 0.32); ball(root, 0.26, 0.8); ball(root, 0.19, 1.15);
+  face(root, 0.19, 1.15); buttons(root, 0.26, 0.8);
+  scarf(root, 0.16, 1.0, 0xd8302a, 0xf2f2f2);
+  twigArm(root, -1, 0, 0.86); twigArm(root, 1, 0, 0.86);
+  return root;
+}
+function bigSnowman() {
+  const root = new THREE.Group();
+  ball(root, 0.54, 0.47); ball(root, 0.4, 1.18); ball(root, 0.28, 1.7);
+  face(root, 0.28, 1.7); buttons(root, 0.4, 1.18);
+  scarf(root, 0.24, 1.46, 0x5d9a26, 0xe2c52a);
+  stickArmMitten(root, -1, 0, 1.3); stickArmMitten(root, 1, 0, 1.3);
+  const hat = new THREE.Group(); hat.position.set(0.02, 1.94, -0.02); hat.rotation.set(-0.08, 0, 0.1); root.add(hat);
+  mesh(hat, new THREE.CylinderGeometry(0.27, 0.27, 0.03, 12), 0xa58a62, 0, 0, 0);
+  mesh(hat, new THREE.CylinderGeometry(0.17, 0.18, 0.3, 12), 0xb0946b, 0, 0.16, 0);
+  mesh(hat, new THREE.CylinderGeometry(0.183, 0.183, 0.06, 12), 0x5a4632, 0, 0.05, 0);
+  return root;
+}
+function broken(size, colorA, colorB) {
+  const root = new THREE.Group();
+  const n = size > 1 ? 11 : 9;
+  for (let i = 0; i < n; i++) {
+    const a = rnd() * Math.PI * 2, d = rnd() * 0.75 * size, r = (0.06 + rnd() * 0.14) * size;
+    mesh(root, new THREE.IcosahedronGeometry(r, 0), rnd() < 0.3 ? SNOW_S : SNOW, Math.cos(a) * d, r * 0.55, Math.sin(a) * d * 0.7, rnd() * 3, rnd() * 3, rnd() * 3);
+  }
+  // dropped scarf lying on the snow, curled
+  for (let i = 0; i < 9; i++) {
+    const t = i / 8, x = 0.55 * size + t * 0.5, z = 0.2 + Math.sin(t * 3) * 0.18;
+    const c = colorB && i % 2 ? colorB : colorA;
+    mesh(root, new THREE.BoxGeometry(0.1, 0.035, 0.14), c, x, 0.02, z, 0, -Math.cos(t * 3) * 0.6, 0);
+  }
+  return root;
+}
+
+// ---------- renderer and shots
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xe9e9ec);
+scene.add(new THREE.HemisphereLight(0xa9c4ff, 0xfff1e0, 1.2));
+const sun = new THREE.DirectionalLight(0xffe0b8, 2.5);
+sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0015;
+Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 12, bottom: -12, near: 1, far: 200 });
+scene.add(sun, sun.target);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.ShadowMaterial({ color: 0x4a5a86, opacity: 0.28 }));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+
+const GAME_ELEV = Math.atan2(40, 17);   // the game camera: 40 m up, 17 m back from its look point
+function shot(obj, mode, w = 520, h = 400, lookY = null, dist = null) {
+  scene.add(obj);
+  const box = new THREE.Box3().setFromObject(obj), c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
+  const span = Math.max(size.x, size.y, size.z * 0.8) * 1.35;
+  const fov = mode === 'front' ? 22 : 14;   // narrow lens: the real camera is ~43 m away, so props barely show perspective
+  const cam = new THREE.PerspectiveCamera(fov, w / h, 0.1, 400);
+  const d = dist ?? span / (2 * Math.tan((fov * Math.PI) / 360));
+  const ty = lookY ?? c.y;
+  if (mode === 'front') cam.position.set(c.x, ty, c.z + d);
+  else cam.position.set(c.x, ty + Math.sin(GAME_ELEV) * d, c.z + Math.cos(GAME_ELEV) * d);
+  cam.lookAt(c.x, ty, c.z);
+  sun.position.set(c.x - 70, 46, c.z - 22); sun.target.position.set(c.x, 0, c.z);
+  renderer.setSize(w, h);
+  renderer.render(scene, cam);
+  const url = renderer.domElement.toDataURL('image/png');
+  scene.remove(obj);
+  return url;
+}
+const fig = (url, cap) => `<figure><img src="${url}" alt="${cap}"><figcaption>${cap}</figcaption></figure>`;
+const card = (title, note, figs, wide = false) => `<div class="card${wide ? ' wide' : ''}"><h2>${title}</h2><small>${note}</small><div class="views">${figs.join('')}</div></div>`;
+
+const html = [];
+html.push(card('1 · Trail direction post', 'About 2.7 m tall. Green circle, blue square, black diamond. Each arrow points left or right at random wherever a post is placed (this one: right, left, right). Breaks on hit: disappears, rider slowed 15% for 2 s.', [
+  fig(shot(directionPost(), 'game'), 'game camera angle'), fig(shot(directionPost(), 'front'), 'front'),
+]));
+html.push(card('2 · Trail map board', 'About 3.3 m tall, 3.5 m wide with the roof. Drawn mountain with coloured runs and markers; a mountain icon on the title plank instead of words. Disappears on hit, 15% slower for 2 s.', [
+  fig(shot(trailMap(), 'game'), 'game camera angle'), fig(shot(trailMap(), 'front'), 'front'),
+]));
+html.push(card('3 · Caution sign', 'About 2.45 m tall. Yellow sign with a black border and a cliff-fall warning symbol, no words. Disappears on hit, 15% slower for 2 s.', [
+  fig(shot(cautionSign(), 'game'), 'game camera angle'), fig(shot(cautionSign(), 'front'), 'front'),
+]));
+seed = 11;
+const sm = () => { seed = 11; return smallSnowman(); };
+html.push(card('4 · Small snowman', 'About 1.35 m tall. Red-and-white scarf, twig arms, carrot nose. On hit it breaks into snow chunks and drops its scarf; rider slowed 20% for 2 s.', [
+  fig(shot(sm(), 'game'), 'game camera angle'), fig(shot(sm(), 'front'), 'front'),
+  fig(shot((seed = 21, broken(1, 0xd8302a, 0xf2f2f2)), 'game', 520, 400, 0.3, 4.2), 'after a hit (game camera angle)'),
+]));
+const bg = () => { seed = 31; return bigSnowman(); };
+html.push(card('5 · Big snowman', 'About 2.25 m tall with the hat. Green scarf with yellow stripes, top hat, stick arms with mittens. Breaks into chunks and drops its scarf; rider slowed 25% for 2 s.', [
+  fig(shot(bg(), 'game'), 'game camera angle'), fig(shot(bg(), 'front'), 'front'),
+  fig(shot((seed = 41, broken(1.4, 0x5d9a26, 0xe2c52a)), 'game', 520, 400, 0.3, 5.5), 'after a hit (game camera angle)'),
+]));
+
+// line-up next to the rider, seen through the real game camera (40 m up, 17 m back, 48° lens)
+seed = 51;
+const line = new THREE.Group();
+const items = [directionPost([-1, 1, -1]), trailMap(), cautionSign(), smallSnowman(), bigSnowman()];
+[-9, -3.5, 2, 6, 9.5].forEach((x, i) => { items[i].position.x = x; line.add(items[i]); });
+const rider = createRiderModel(RIDERS[0]);
+rider.update({ x: 0, y: 0, z: 3.5, heading: 0, flip: 0, spin: 0, steer: 0, air: false, charging: false, braking: false, speed: 15, spinRate: 0 }, 1);
+rider.root.traverse((m) => { if (m.isMesh) m.castShadow = true; });
+line.add(rider.root);
+const lineup = (() => {
+  scene.add(line);
+  const w = 812, h = 375, cam = new THREE.PerspectiveCamera(48, w / h, 2, 320);
+  cam.position.set(0, 40, 2 + 17); cam.lookAt(0, 0, 2);
+  sun.position.set(-70, 46, -20); sun.target.position.set(0, 0, 2);
+  renderer.setSize(w, h); renderer.render(scene, cam);
+  const url = renderer.domElement.toDataURL('image/png'); scene.remove(line); return url;
+})();
+const lineupZoom = (() => {
+  scene.add(line);
+  const w = 812, h = 375, cam = new THREE.PerspectiveCamera(16, w / h, 2, 320);
+  cam.position.set(0, 40, 2 + 17); cam.lookAt(0, 0, 2);
+  renderer.setSize(w, h); renderer.render(scene, cam);
+  const url = renderer.domElement.toDataURL('image/png'); scene.remove(line); return url;
+})();
+html.push(card('All five beside the rider, at real game size', 'Seen through the actual game camera on a phone-shaped screen. Note the rider is drawn 1.75× life size in the game so she reads from the high camera; the scenery here is real-life size.', [fig(lineup, 'in-game camera, 812 × 375'), fig(lineupZoom, 'same camera, zoomed in 3×')], true));
+
+document.getElementById('out').innerHTML = html.join('');
+window.sceneryNames = ['1-post-game', '1-post-front', '2-map-game', '2-map-front', '3-caution-game', '3-caution-front', '4-small-game', '4-small-front', '4-small-broken', '5-big-game', '5-big-front', '5-big-broken', '6-lineup', '6-lineup-zoom'];
+window.sceneryReady = true;
+</script>
+</body>
+</html>

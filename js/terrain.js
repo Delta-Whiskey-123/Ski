@@ -170,6 +170,10 @@ export function createTerrain(level) {
     return out;
   }
 
+  // ---- breakable scenery (signs, snowmen): hand-placed, few, so a plain list
+  const scenery = (level.scenery || []).map((p, i) => ({ ...p, id: i }));
+  const sceneryNear = (z) => scenery.filter((p) => Math.abs(p.z - z) < 4);
+
   // ---- side fences: one line of points down each side of the mountain
   const fences = [{ side: -1, points: [] }, { side: 1, points: [] }];
   for (let z = bounds.minZ; z <= bounds.maxZ; z += 5) {
@@ -200,8 +204,8 @@ export function createTerrain(level) {
   gates.forEach((g, n) => { g.index = n; });
 
   return {
-    level, bounds, gates, props, fences, binSize: BIN,
-    heightAt, naturalHeightAt, corridorOut, nearestCentre, nearestPathId, gradeAt, mainAt, propsBetween,
+    level, bounds, gates, props, fences, scenery, binSize: BIN,
+    heightAt, naturalHeightAt, corridorOut, nearestCentre, nearestPathId, gradeAt, mainAt, propsBetween, sceneryNear,
     kickers: level.features.filter((f) => f.type === 'kicker'),
     edgeWidth: () => T.ride.edgeWidth,
   };

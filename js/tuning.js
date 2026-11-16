@@ -86,6 +86,13 @@ export const DEFAULTS = {
     flipGrowth: 1.25,     // multiplier per extra flip
     comboBonus: 1.5,      // spin and flip in the same air
   },
+  scenery: {
+    // Breakable signs and snowmen (js/data/scenery.js). A hit is a one-off speed cut.
+    slowSign: 0.15,       // fraction of speed lost hitting a trail post, trail map or caution sign
+    slowSmallSnowman: 0.2,// ...a small snowman
+    slowBigSnowman: 0.25, // ...a big snowman
+    riderRadius: 0.45,    // how close her centre must get to a piece's outline to hit it
+  },
   stats: {
     // A rider stat of 1..10 scales its number between these two multipliers.
     low: 0.8,

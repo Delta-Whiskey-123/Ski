@@ -9,6 +9,7 @@ import { createTerrainMesh } from './terrain-mesh.js';
 import { createProps } from './props.js';
 import { createRiderModel } from './rider-model.js';
 import { createEffects } from './effects.js';
+import { createScenery } from './scenery.js';
 
 // Render quality presets (not gameplay, so not in tuning.js).
 export const QUALITY = {
@@ -44,6 +45,7 @@ export function createView(canvas, terrain, rider, quality = 'high') {
   const ground = createTerrainMesh(scene, terrain, { res: Q.terrainRes });
   const props = createProps(scene, terrain);
   const effects = createEffects(scene, terrain);
+  const scenery = createScenery(scene, terrain);
   const model = createRiderModel(rider);
   scene.add(model.root);
 
@@ -57,7 +59,7 @@ export function createView(canvas, terrain, rider, quality = 'high') {
   addEventListener('resize', resize); resize();
 
   return {
-    effects, renderer, scene, camera,
+    effects, scenery, renderer, scene, camera,
     // Jump the camera and chunks straight to the rider (start of a run).
     snap(s) { cam.ready = false; ground.update(s.z, 99); effects.reset(); },
     render(s, dt) {

@@ -47,4 +47,22 @@ export default {
 
   // Hand-placed obstacles (the forest is generated around the pistes).
   props: [],
+
+  // Breakable scenery (types in js/data/scenery.js). Hitting one slows her; jumping clears it.
+  scenery: [
+    { type: 'trailmap', x: -12.5, z: 32 },             // at the start
+    { type: 'trailpost', x: 11, z: 44 },
+    { type: 'snowman-small', x: 4, z: 118 },
+    { type: 'snowman-big', x: -15, z: 226 },
+    { type: 'caution', x: -7.5, z: 246 },              // before the 4.5 m ledge
+    { type: 'trailpost', x: 10, z: 318 },              // where the tree route splits off
+    { type: 'snowman-big', x: -6, z: 352 },
+    { type: 'snowman-small', x: 50, z: 420 },          // on the tree route
+    { type: 'snowman-small', x: -14, z: 470 },
+    { type: 'snowman-big', x: 12, z: 588 },
+    { type: 'caution', x: -14, z: 786 },               // either side of the 12 m ledge
+    { type: 'caution', x: 14, z: 786 },
+    { type: 'snowman-small', x: 7, z: 880 },
+    { type: 'snowman-big', x: -9, z: 886 },
+  ],
 };

@@ -8,7 +8,8 @@ import { T } from './tuning.js';
 import { LEVELS } from './data/levels/index.js';
 import { RIDERS, EQUIPMENT, deriveStats } from './data/riders.js';
 import { createTerrain } from './terrain.js';
-import { createRider, step } from './rider-physics.js';
+import { createRider, step, slowDown } from './rider-physics.js';
+import { createSceneryTracker } from './scenery.js';
 import { trickValue } from './tricks.js';
 import { createInput } from './input.js';
 import { createGateTracker } from './gates.js';
@@ -33,6 +34,7 @@ const input = createInput(document.getElementById('view'));
 const debug = createDebug(document.getElementById('debug'));
 const gates = createGateTracker(terrain);
 const meter = createMeter();
+const scenery = createSceneryTracker(terrain);
 
 const $ = (id) => document.getElementById(id);
 const el = {
@@ -49,6 +51,7 @@ function resetRun() {
   state.y = terrain.heightAt(state.x, state.z);
   run = createRun(mode, level);
   gates.reset(state.z); meter.reset();
+  scenery.reset(); view.scenery.reset();
   view.snap(state);
 }
 function beginRun() {
@@ -100,6 +103,12 @@ function handle(events) {
       if (now === 'charged') flash('CHARGED', 'good');
       if (now === 'full') flash('ADRENALINE READY', 'good');
     }
+    if (ev.type === 'break') {
+      // breakable scenery: a one-off speed cut, then the model breaks (sound first once audio exists)
+      slowDown(state, ev.cut);
+      view.scenery.breakItem(ev.item);
+      view.effects.burst(state, 16);
+    }
     if (ev.type === 'gate') {
       run.onGate(ev.passed);
       if (!ev.passed && mode === 'race') flash(`GATE MISSED  +${T.race.gatePenalty.toFixed(1)} s`, 'bad');
@@ -147,6 +156,7 @@ function tick(dt, inp) {
       handle(step(state, STEP, riding ? inp : COAST_INPUT, terrain, stats, meter.mods()));
       if (riding) {
         handle(gates.update(state));
+        handle(scenery.update(state));
         meter.tick(STEP); run.tick(STEP, state);
         if (state.z >= level.length) finish();
       }
@@ -185,7 +195,7 @@ requestAnimationFrame(frame);
 // For poking from the browser console.
 window.summit = {
   get state() { return state; }, get run() { return run; }, get phase() { return phase; },
-  T, terrain, view, input, meter, gates, ui, save, step, STEP, beginRun, tick,
+  T, terrain, view, input, meter, gates, scenery, ui, save, step, STEP, beginRun, tick,
   // Blank input for summit.tick(); override fields as needed, e.g. { ...summit.idle(), steer: 0.5 }.
   idle: () => ({ ...COAST_INPUT, brake: false, adrenaline: false, spinGesture: 0 }),
   startRun: beginRun,
