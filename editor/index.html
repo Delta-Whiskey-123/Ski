@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Summit Protocol map editor</title>
+  <link rel="stylesheet" href="editor.css">
+</head>
+<body>
+  <header id="toolbar">
+    <strong>Map editor</strong>
+    <button id="generate" title="Make a whole course from a seed and a few settings">Generate…</button>
+    <span class="gap"></span>
+    <button id="import" title="Open a map file (or drop one anywhere on this window)">Import…</button>
+    <button id="export-map" title="Download the map as a .map.json file">Export map</button>
+    <button id="export-level" title="Download a game level module (.js) made from this map">Export level .js</button>
+    <span class="gap"></span>
+    <button id="undo" title="Undo (Ctrl+Z)">Undo</button>
+    <button id="redo" title="Redo (Ctrl+Y)">Redo</button>
+    <span class="gap"></span>
+    <button id="fit" title="Show the whole course (F)">Fit</button>
+    <label><input type="checkbox" id="show-trees" checked> Trees</label>
+    <label><input type="checkbox" id="show-arcs" checked> Jump flights</label>
+    <label><input type="checkbox" id="show-warnings" checked> Warning marks</label>
+    <span class="legend">
+      <i style="background:#1f9d55"></i>slow <i style="background:#2f6fe4"></i>normal <i style="background:#d0288a"></i>adrenaline
+    </span>
+    <input type="file" id="file" accept=".json,application/json" hidden>
+  </header>
+
+  <main>
+    <canvas id="plan"></canvas>
+    <aside>
+      <section id="panel" aria-label="Properties"></section>
+      <section id="warning-box" aria-label="Warnings">
+        <h2 id="warnings-title">Warnings</h2>
+        <ul id="warnings"></ul>
+      </section>
+    </aside>
+  </main>
+
+  <footer>
+    <span id="status">Loading…</span>
+    <span id="cursor"></span>
+    <span id="zoom"></span>
+  </footer>
+
+  <dialog id="generate-dialog">
+    <h2>Generate a course</h2>
+    <p>The same seed and settings always give the same course. It replaces the current map; Undo brings it back.</p>
+    <div class="fields">
+      <label class="field"><span>Seed</span><span class="pair"><input type="number" id="gen-seed" step="1"><button type="button" id="gen-random">Random</button></span></label>
+      <label class="field"><span>Length (m)</span><input type="number" id="gen-length" step="100"></label>
+      <label class="field"><span>Difficulty (1 easy to 5 hard)</span><input type="number" id="gen-difficulty" step="1"></label>
+      <label class="field"><span>Branches</span><input type="number" id="gen-branches" step="1"></label>
+      <label class="field"><span>Jump density (0 few to 1 many)</span><input type="number" id="gen-jumpDensity" step="0.1"></label>
+    </div>
+    <p id="gen-report" class="note"></p>
+    <div class="buttons">
+      <button type="button" id="gen-go" class="primary">Generate</button>
+      <button type="button" data-close>Close</button>
+    </div>
+  </dialog>
+
+  <dialog id="error-dialog">
+    <h2 id="error-title">The file could not be opened</h2>
+    <ul id="error-list"></ul>
+    <p class="note">Nothing was changed.</p>
+    <div class="buttons"><button type="button" data-close>Close</button></div>
+  </dialog>
+
+  <script type="module" src="app/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+/* Map editor. A desktop design tool: plain on purpose. System fonts only. */
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  display: grid; grid-template-rows: auto 1fr auto;
+  font: 13px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #22303c; background: #eef2f6;
+}
+body.dropping::after {
+  content: 'Drop the map file to open it'; position: fixed; inset: 0; z-index: 10;
+  display: grid; place-items: center; font-size: 22px; color: #fff; background: rgba(34, 48, 60, .7);
+}
+button, input, select { font: inherit; color: inherit; }
+button { padding: 4px 10px; border: 1px solid #b4c0cc; border-radius: 4px; background: #fff; cursor: pointer; }
+button:hover:not(:disabled) { background: #f0f5fa; }
+button:disabled { opacity: .45; cursor: default; }
+button.primary { background: #2f6fe4; border-color: #2f6fe4; color: #fff; }
+button.danger { margin-top: 10px; border-color: #d7263d; color: #b01b30; }
+:focus-visible { outline: 2px solid #2f6fe4; outline-offset: 1px; }
+
+#toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 10px; background: #fff; border-bottom: 1px solid #cfd8e1; }
+#toolbar .gap { width: 10px; }
+#toolbar label { display: inline-flex; align-items: center; gap: 4px; }
+.legend { margin-left: auto; color: #52626f; }
+.legend i, .swatch { display: inline-block; width: 10px; height: 10px; margin: 0 3px 0 8px; border-radius: 2px; vertical-align: -1px; }
+.swatch { margin-left: 0; }
+
+main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; min-height: 0; overflow: hidden; }
+#plan { width: 100%; height: 100%; min-height: 0; display: block; cursor: crosshair; background: #dbe5ee; }
+aside { display: grid; grid-template-rows: minmax(0, 3fr) minmax(0, 2fr); min-height: 0; border-left: 1px solid #cfd8e1; background: #fff; }
+aside section { overflow: auto; padding: 10px 12px; min-height: 0; }
+#warning-box { border-top: 1px solid #cfd8e1; }
+h2 { margin: 0 0 8px; font-size: 14px; }
+h3 { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #52626f; }
+
+.fields { display: grid; gap: 4px; }
+.field { display: grid; grid-template-columns: 1fr 130px; align-items: center; gap: 8px; }
+.field input:not([type=checkbox]), .field select { width: 100%; padding: 3px 6px; border: 1px solid #b4c0cc; border-radius: 3px; background: #fff; }
+.field input[type=checkbox] { justify-self: start; }
+.field input:disabled { background: #f0f3f6; color: #6b7a87; }
+.fields.row { grid-template-columns: 1fr 1fr; margin-bottom: 4px; }
+.fields.row .field { grid-template-columns: auto 70px; }
+.pair { display: flex; gap: 4px; }
+.pair input { min-width: 0; }
+.note { margin: 8px 0 0; color: #52626f; font-size: 12px; }
+.warn { margin: 6px 0 0; padding: 4px 8px; border-left: 3px solid #f5a623; background: #fff7e8; font-size: 12px; }
+.warn.error { border-color: #d7263d; background: #fdecee; }
+
+table.flights { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+table.flights th { text-align: right; font-weight: 600; color: #52626f; padding: 2px 4px; }
+table.flights td { text-align: right; padding: 2px 4px; border-top: 1px solid #e3e9ef; }
+table.flights th:first-child, table.flights td:first-child { text-align: left; }
+canvas.side { width: 100%; height: 110px; margin-top: 8px; border: 1px solid #cfd8e1; border-radius: 3px; display: block; }
+
+#warnings-title.ok { color: #1f7a45; }
+#warnings-title.warning { color: #9a6200; }
+#warnings-title.error { color: #b01b30; }
+#warnings { list-style: none; margin: 0; padding: 0; }
+#warnings li { padding: 5px 8px; margin-bottom: 4px; border-left: 3px solid #f5a623; background: #fff7e8; border-radius: 0 3px 3px 0; cursor: pointer; font-size: 12px; }
+#warnings li.error { border-color: #d7263d; background: #fdecee; }
+#warnings li:hover { filter: brightness(.97); }
+#warnings li b { font-variant-numeric: tabular-nums; }
+
+footer { display: flex; gap: 16px; padding: 4px 10px; background: #fff; border-top: 1px solid #cfd8e1; font-size: 12px; color: #52626f; }
+#status { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#status.error { color: #b01b30; }
+#cursor, #zoom { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+dialog { width: min(440px, 92vw); border: 1px solid #b4c0cc; border-radius: 6px; padding: 16px 18px; color: inherit; }
+dialog::backdrop { background: rgba(34, 48, 60, .45); }
+dialog p { margin: 0 0 10px; }
+dialog .field { grid-template-columns: 1fr 150px; }
+dialog .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+#error-list { margin: 0; padding-left: 18px; max-height: 40vh; overflow: auto; }
