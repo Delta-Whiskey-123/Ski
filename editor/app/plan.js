@@ -125,7 +125,7 @@ export function createPlan(canvas) {
             if (zz >= z1) break;
           }
           ctx.strokeStyle = chosen ? C.select : side ? C.pisteEdge : C.centre;
-          ctx.lineWidth = side ? 1 : 1; ctx.setLineDash(side ? [] : [4, 5]); ctx.stroke(); ctx.setLineDash([]);
+          ctx.lineWidth = 1; ctx.setLineDash(side ? [] : [4, 5]); ctx.stroke(); ctx.setLineDash([]);
         }
       }
       p.nodes.forEach((n, ni) => {

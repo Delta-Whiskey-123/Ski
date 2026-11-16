@@ -101,8 +101,8 @@ function buildAttempt(S, attempt) {
   buildBranches(map, S, stream('branches'), isWild, notes);
   for (const p of map.paths) buildFeatures(map, S, p, stream(`features:${p.id}`), isWild);
   map.features.sort((a, b) => a.z - b.z);
-  buildScenery(map, S, stream('scenery'), isWild, wildEnd);
-  buildObjects(map, S, stream('objects'), isWild, wildEnd);
+  buildScenery(map, S, stream('scenery'), wildEnd);
+  buildObjects(map, S, stream('objects'), wildEnd);
 
   const v = entrySpeed(PROFILES.find((p) => p.id === 'normal'), 1);
   const gold = Math.round(S.length / v);
@@ -112,11 +112,11 @@ function buildAttempt(S, attempt) {
   const removed = { features: 0, gates: 0, scenery: 0, objects: 0, nudged: 0 };
 
   // Phase A: features, scenery and objects, with no gates yet.
-  let result = repair(map, removed, false);
+  let result = repair(map, removed);
   // Phase B: gates the way the game makes them, then drop the ones the rules reject.
   if (result.fixable) {
     map.gates = generateGates(map).sort((a, b) => a.z - b.z);
-    result = repair(map, removed, true);
+    result = repair(map, removed);
   }
 
   const report = {
@@ -250,7 +250,7 @@ function buildFeatures(map, S, path, rng, isWild) {
 }
 
 // ---- stage: breakable scenery
-function buildScenery(map, S, rng, isWild, wildEnd) {
+function buildScenery(map, S, rng, wildEnd) {
   const main = map.paths[0], put = (type, x, z) => map.scenery.push({ type, x: round(x), z: round(z) });
   const c0 = pathAt(main, map.start.z + 26);
   put('trailmap', c0.x - c0.w + 3.5, map.start.z + 26);
@@ -272,7 +272,7 @@ function buildScenery(map, S, rng, isWild, wildEnd) {
 }
 
 // ---- stage: placeholder objects from the catalogue
-function buildObjects(map, S, rng, isWild, wildEnd) {
+function buildObjects(map, S, rng, wildEnd) {
   const fence = map.fenceOffset ?? 10;
   const edges = (z) => {
     let left = Infinity, right = -Infinity;
@@ -304,7 +304,6 @@ function buildObjects(map, S, rng, isWild, wildEnd) {
   }
   // signposts where the resort begins, banners down the finish straight
   for (const side of [-1, 1]) put('sign', outside(wildEnd + 10, side, 2), wildEnd + 10);
-  const half = OBJECT_TYPES.banner.w / 2;
   for (const z of [S.length - 90, S.length - 45]) {
     for (const side of [-1, 1]) put('banner', outside(z, side, 1.5), z, { rot: Math.PI / 2 });
   }
@@ -312,13 +311,12 @@ function buildObjects(map, S, rng, isWild, wildEnd) {
   for (const side of [-1, 1]) {
     put('fence', outside(S.length - 120, side, 3), S.length - 120, { x2: round(outside(S.length - 60, side, 3)), z2: S.length - 60 });
   }
-  void half; void isWild;
 }
 
 // ---- check and repair
 // Runs the real rules and fixes what they report. Returns { warnings, fixable }.
-// With gates = false, gate rules are not yet in play (the list is empty).
-function repair(map, removed, gates) {
+// Called twice: first while the gate list is still empty, then with gates.
+function repair(map, removed) {
   const nudged = new Set();
   let warnings = [];
   for (let round_ = 0; round_ < G.maxRepairRounds; round_++) {
@@ -350,7 +348,6 @@ function repair(map, removed, gates) {
     removed.features += kill.feature.size; removed.gates += kill.gate.size; removed.scenery += kill.scenery.size; removed.objects += kill.object.size;
     map.features = drop(map.features, kill.feature); map.gates = drop(map.gates, kill.gate);
     map.scenery = drop(map.scenery, kill.scenery); map.objects = drop(map.objects, kill.object);
-    void gates;
   }
   warnings = analyse(map).warnings;
   return { warnings, fixable: warnings.every((w) => w.items.some((i) => i.kind !== 'path' && i.kind !== 'start')) };

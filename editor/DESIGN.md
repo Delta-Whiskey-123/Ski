@@ -122,6 +122,8 @@ Checked against the measured airs in `PROGRESS.md` (normal profile): 4.5 m ledge
 
 One table, `RULES` in `core/rules.js`. Each row has an id, a plain name, its distances, a severity (`error` = the course is broken, `warning` = bad design) and produces warnings `{ rule, severity, x, z, message, items }`, where `items` name the map entries involved so the editor can select them. Add or change a rule by editing the table; the distances must stay in the table.
 
+`node tools/map.mjs rules` prints the table with every distance.
+
 A "jump" for spacing and gate rules is a kicker or a ledge (the game's `jumpZone()`); rollers are not. Predicted-landing rules apply to every feature that gets air at a profile.
 
 ## 6. Versions and migration

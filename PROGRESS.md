@@ -51,13 +51,12 @@ A desktop tool for designing courses, in `editor/`. Not part of the shipped game
 - The game page loads with a clean console after the change (http://localhost:8130/, checked from the console; no run was ridden by hand).
 - Predicted air times against the measured ones above (normal speed): 4.5 m ledge 0.75 s (measured 0.75), second roller 0.67 s (0.7), big kicker 1.68 s (1.7), 12 m ledge 1.47 s (1.5). The first roller predicts 0.55 s against a measured 0.3 s: in the measured run she reaches it 64 m after a standing start, well below steady speed, so this is expected, not an error.
 - The command line was run on level 1 (6 warnings, exit 1) and on generated maps (PASS, exit 0). 36 generated courses across lengths 600 to 4000 m, difficulty 1 to 5, 0 to 6 branches and every jump density all passed every rule at the first attempt, and the same seed gave the same file each time.
-- In Chrome, at 1400x850, clean console throughout: the plan drew level 1 and a generated course correctly (screenshots looked at); a feature, a piste point and a gate were dragged; undo and redo by button and by Ctrl+Z / Ctrl+Y; a panel edit; a refused edit (negative width, with its message); Delete; wheel zoom; pan; click a warning to jump to it; generate; export then re-import gave the identical map; a file from a "newer version" was refused with the reason and changed nothing; the working map came back after a reload (autosave).
+- In Chrome, at 1400x850, clean console throughout: the plan drew level 1 and a generated course correctly, and a selected kicker showed its three flights, landing zones, flight table and side view (screenshots looked at); a feature, a piste point and a gate were dragged; undo and redo by button and by Ctrl+Z / Ctrl+Y; a panel edit; a refused edit (negative width, with its message); Delete; wheel zoom; pan; click a warning to jump to it; generate; export then re-import gave the identical map; a file from a "newer version" was refused with the reason and changed nothing; the working map came back after a reload (autosave).
 
 **Not verified:**
 
 - The real Windows file picker, a real file dragged in from the desktop, and a download really landing on disk. Import was tested by handing the page a file object, and export by capturing the text it was about to download. The code paths are the real ones; the operating-system parts are not exercised.
 - Only the first drag (a ledge) and the first screenshots used real mouse input. The preview pane then went into the background, so the later drags (piste point, gate), wheel zoom, pan and Delete were tested by sending the page the same mouse and key events from the console.
-- The side-view sketch in the panel was not looked at in a screenshot at full size.
 - Chrome only; no other browser was tried (the editor is specified for desktop Chrome).
 - No generated course has been converted and ridden in the game: the game cannot yet load a second level (`editor/MILESTONES.md`, E8).
 
