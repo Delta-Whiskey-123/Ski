@@ -2,6 +2,8 @@
 
 Project folder and repo are called "Ski"; the game is "Summit Protocol". A single-player arcade snowboard run seen from a high camera, rider travelling from the top of the screen to the bottom. Read `PROGRESS.md` first (what is done, what is next, known problems), then `MILESTONES.md` (the ordered work list). Do the next unfinished milestone only.
 
+There are two tracks of work. The **game** (this file, `MILESTONES.md`) and the **map editor** (the "Map editor" section below, `editor/MILESTONES.md`, branch `map-editor`). The owner says which track a session is on; if they do not, ask. Never do a milestone from both in one session.
+
 The owner is not a professional developer. Explain choices in plain language. When something is genuinely theirs to decide, ask a multiple-choice question; do not assume.
 
 ## Hard constraints
@@ -26,7 +28,7 @@ node tools/serve.mjs
 
 Then open http://localhost:8130. ES modules need http, so `file://` will not work. `.claude/launch.json` defines the same server for the Claude preview pane (name `ski`).
 
-There is no test suite. Check by hand:
+The game has no test suite (the map editor does: see "Map editor"). Check by hand:
 
 1. Console shows no errors on load.
 2. Keyboard: left/right carve; space (hold, release) jumps; in the air, tapping left/right spins and up/down flips; a landed trick shows a call-out.
@@ -92,12 +94,90 @@ Keep the separation: `input.js` reports, `rider-physics.js` decides, `render/*` 
 
 ## Adding things
 
-- **A level:** copy `js/data/levels/level1.js`. `paths` are pistes (centre line + half-width, top to bottom; a branch must start and end on top of another path). `features` are `roller`, `ledge` (natural) and `kicker` (man-made). `grades` set steepness per stretch. The forest, the slalom gates and the red side fences are generated from the paths. Optional level fields: `fenceOffset` (metres from the outermost piste edge to the fence, default 10) and `fenceTreeDensity` (how many small hazard trees grow between piste and fence, default 0.14). Every kicker gets course paint (blue spray thickening toward the jump, red line on the lip) unless it has `paint: false`; natural jumps are never painted. Register it in `js/data/levels/index.js` and give it `race: { gold, silver, bronze }` medal times. (The world is currently built once at start-up for level 1; `main.js` must rebuild terrain and view when a second level exists.)
+- **A level:** copy `js/data/levels/level1.js`. `paths` are pistes (centre line + half-width, top to bottom; a branch must start and end on top of another path). `features` are `roller`, `ledge` (natural) and `kicker` (man-made). `grades` set steepness per stretch. The forest, the slalom gates and the red side fences are generated from the paths (a level may instead carry its own final `gates` list, `[{ x, z, red, path }]`, which is what the map editor writes; `createTerrain()` then uses that list as it is). Optional level fields: `fenceOffset` (metres from the outermost piste edge to the fence, default 10) and `fenceTreeDensity` (how many small hazard trees grow between piste and fence, default 0.14). Every kicker gets course paint (blue spray thickening toward the jump, red line on the lip) unless it has `paint: false`; natural jumps are never painted. Register it in `js/data/levels/index.js` and give it `race: { gold, silver, bronze }` medal times. (The world is currently built once at start-up for level 1; `main.js` must rebuild terrain and view when a second level exists.)
 - **Breakable scenery:** add `{ type, x, z }` to the level's `scenery` list (types in `js/data/scenery.js`: `trailpost`, `trailmap`, `caution`, `snowman-small`, `snowman-big`; a trail post may take `dirs: [1, -1, 1]`, else its arrows point at random). These are not crash obstacles: a hit breaks the piece and cuts her speed once by `scenery.slow*` in `tuning.js`; flying higher than the piece clears it. Keep them off jump landings.
 - **A rider:** add an object to `RIDERS` in `js/data/riders.js` (stats 1 to 10, colours, look).
 - **Equipment (e.g. skis later):** add to `EQUIPMENT` with a `kind`; the model and stance for a new kind go in `js/render/rider-model.js`.
 - **A trick name:** `js/data/tricks.js`.
 - **A tuning value:** add to `DEFAULTS` in `js/tuning.js` with a comment.
+
+## Map editor
+
+A desktop design tool for laying out courses: pistes, jumps, gates, scenery. It lives in `editor/`, is **not part of the shipped game**, and has its own ordered work list in `editor/MILESTONES.md`. Read `editor/DESIGN.md` before touching it: it gives the map format, what each file owns and must never do, and the data flow.
+
+Work on the editor happens on the branch `map-editor`. Do not push editor work to `main`; the owner merges.
+
+| File | Role |
+| --- | --- |
+| `editor/DESIGN.md` | The design reference: map format, modules, data flow, notes for the 3D pane. |
+| `editor/MILESTONES.md` | The editor's ordered work list. |
+| `editor/index.html`, `editor/editor.css` | The editor page. |
+| `editor/core/format.js` | Map version, validation with readable errors, migration hook, text in and out. |
+| `editor/core/convert.js` | Map to level and level to map; writes level modules. |
+| `editor/core/catalogue.js` | Placeholder object types (hut, lodge, pylon, rock...) as data. |
+| `editor/core/geometry.js` | Measuring helpers over a map, built on the game's `pathAt()`. |
+| `editor/core/predict.js` | Jump prediction by running the game's real `step()`. The three speed profiles. |
+| `editor/core/rules.js` | The `RULES` table and `checkMap()`. |
+| `editor/core/analyse.js` | `analyse(map)`: level, terrain, jump predictions and warnings in one call. |
+| `editor/core/generate.js` | Seeded course generator (generate, check, repair, retry). |
+| `editor/core/rng.js` | The seeded random source. |
+| `editor/app/store.js` | The working map, selection, undo and redo. The only place the map changes. |
+| `editor/app/actions.js` | Edits as pure functions: map in, new map out. |
+| `editor/app/plan.js` | Draws the 2D plan and hit-tests. Read only. |
+| `editor/app/interact.js` | Mouse and keyboard on the plan. |
+| `editor/app/panel.js`, `warnings.js` | Properties panel; warning list. |
+| `editor/app/io.js` | Import, export, autosave. |
+| `editor/app/main.js` | Wiring, toolbar, generate dialog. |
+| `editor/maps/` | Example and working map files (`*.map.json`). |
+| `editor/test/` | Automated tests for the core, the store and the command line. |
+| `tools/map.mjs` | Command-line map tool: generate, validate, jumps, convert, import, rules. |
+
+### Run and check the editor
+
+```bash
+node tools/serve.mjs
+```
+
+Then open http://localhost:8130/editor/ in desktop Chrome. `window.editor` exposes `store`, `plan` and `generateMap` for the console.
+
+```bash
+node --test "editor/test/*.test.mjs"
+```
+
+All tests must pass before every commit on this track. The quotes and the pattern are needed.
+
+Without a browser, a Claude session can do the whole job from the terminal (exit code 0 = pass, 1 = warnings or errors, 2 = bad usage):
+
+```bash
+node tools/map.mjs generate --seed 7 --length 2600 --difficulty 3 --branches 3 --jumps 0.5 --out editor/maps/my.map.json
+```
+
+```bash
+node tools/map.mjs validate editor/maps/my.map.json
+```
+
+```bash
+node tools/map.mjs jumps editor/maps/my.map.json
+```
+
+```bash
+node tools/map.mjs convert editor/maps/my.map.json --out js/data/levels/my.js
+```
+
+`validate` and `jumps` also accept a level module (`js/data/levels/level1.js`). `import` turns a level module into a map. `rules` prints the rule table.
+
+### Editor rules that must not be broken
+
+- **Never change the map format without all three: a version bump (`MAP_VERSION`), a migration (`MIGRATIONS` in `editor/core/format.js`) and the owner's approval.** That covers renaming or removing a key, changing what a key means, and adding a key or a feature/object type that the game or the rules give meaning to. Old map files must always open.
+- A map is a game level plus `format`, `version` and `meta`. Keep level keys in the game's own shape. Keys the editor does not know are carried through untouched, at every depth: never rebuild an item from the fields you know.
+- `editor/core/` is pure: no DOM, no `window`, no `localStorage`, no Three.js, no `Math.random`, no clock. It must run unchanged in Chrome and in Node.
+- The editor imports the game's `js/terrain.js`, `js/rider-physics.js`, `js/tuning.js` and `js/data/*`. **Never copy game code into the editor**, and never re-derive flight or piste maths: predictions come from the real `step()`, piste positions from the real `pathAt()`.
+- In the browser the map changes only through `store.apply()` / `store.preview()` + `store.commit()`. Edits are pure functions in `actions.js` that return a new map and never change the one given. Drawing code never changes the map or the selection.
+- Rule distances live only in the `RULES` table in `editor/core/rules.js`.
+- Placeholder objects stay in the map's `objects` list. They must never be put in `props`: the game treats everything in `props` as forest and, after game milestone 1, as crash obstacles.
+- Predictions use the default tuning (`DEFAULTS` in `js/tuning.js`), not this device's saved overrides.
+- Game files may be changed for the editor only when the change does not alter how the game plays (exporting a function, adding a `dispose()`). List each such change in `PROGRESS.md` and check that the game still loads with a clean console and that the test "level 1 still produces exactly the gates it did" passes.
+- The game's hard constraints still apply to the editor (static files, no build step, no npm dependencies, no CDN, no network requests, no asset files, only the vendored Three.js, original work). The phone, touch, landscape and "never `click`" rules do not: the editor is desktop Chrome with mouse and keyboard.
 
 ## Working rules
 

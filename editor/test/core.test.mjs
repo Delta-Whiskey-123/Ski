@@ -1,6 +1,6 @@
 // Tests for the shared core. Run from the repo root:
 //
-//   node --test editor/test/
+//   node --test "editor/test/*.test.mjs"
 //
 // Node's built-in test runner; no dependencies.
 
@@ -325,11 +325,11 @@ test('tools/map.mjs: exit codes tell pass from fail', () => {
   assert.equal(gen.status, 0);
   assert.deepEqual(parseMap(gen.stdout).errors, [], 'generate prints a valid map');
   assert.equal(run('validate', here('../../js/data/levels/level1.js')).status, 1, 'level 1 has warnings');
-  assert.equal(run('validate', here('../maps/generated-11.json')).status, 0, 'a generated map passes');
+  assert.equal(run('validate', here('../maps/generated-11.map.json')).status, 0, 'a generated map passes');
   assert.equal(run('validate', here('./nope.json')).status, 2);
   assert.equal(run('frobnicate').status, 2);
-  const jumps = run('jumps', here('../maps/level1.json'), '--json');
+  const jumps = run('jumps', here('../maps/test-slope.map.json'), '--json');
   assert.equal(jumps.status, 0);
   assert.equal(JSON.parse(jumps.stdout).length, level1.features.length);
-  assert.match(run('convert', here('../maps/generated-11.json')).stdout, /export default \{/);
+  assert.match(run('convert', here('../maps/generated-11.map.json')).stdout, /export default \{/);
 });

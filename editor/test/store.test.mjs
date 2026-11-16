@@ -1,0 +1,145 @@
+// Tests for the editor's store and actions (no browser needed: neither
+// touches the DOM). Run from the repo root:  node --test "editor/test/*.test.mjs"
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+
+import level1 from '../../js/data/levels/level1.js';
+import { levelToMap } from '../core/convert.js';
+import { validateMap, serializeMap } from '../core/format.js';
+import { createStore } from '../app/store.js';
+import { moveItem, setField, removeItem, updateItem, getItem, canRemove } from '../app/actions.js';
+
+const fresh = () => levelToMap(level1);
+const freeze = (v) => { if (v && typeof v === 'object' && !Object.isFrozen(v)) { Object.freeze(v); Object.values(v).forEach(freeze); } return v; };
+
+test('actions return a new map and never touch the one they were given', () => {
+  const map = freeze(fresh());                       // any write to the original would throw
+  const text = serializeMap(map);
+  const sels = [
+    { kind: 'node', path: 1, index: 2 }, { kind: 'feature', index: 3 }, { kind: 'gate', index: 4 },
+    { kind: 'scenery', index: 0 }, { kind: 'start' }, { kind: 'path', index: 1 }, { kind: 'grade', index: 1 },
+  ];
+  for (const sel of sels) {
+    const moved = moveItem(map, sel, 3, 123);
+    assert.notEqual(moved, map);
+    assert.deepEqual(validateMap(sel.kind === 'path' ? map : moved), [], sel.kind);
+  }
+  assert.equal(setField(map, { kind: 'feature', index: 1 }, 'height', 3).features[1].height, 3);
+  assert.equal(removeItem(map, { kind: 'gate', index: 0 }).gates.length, map.gates.length - 1);
+  assert.equal(serializeMap(map), text);
+});
+
+test('an edit shares everything it did not change (cheap undo)', () => {
+  const map = fresh(), next = setField(map, { kind: 'feature', index: 1 }, 'height', 3);
+  assert.equal(next.paths, map.paths);
+  assert.equal(next.gates, map.gates);
+  assert.equal(next.features[0], map.features[0]);
+  assert.notEqual(next.features[1], map.features[1]);
+});
+
+test('moving a piste point keeps the points in order', () => {
+  const map = fresh(), sel = { kind: 'node', path: 0, index: 2 };
+  const down = moveItem(map, sel, 0, 9999).paths[0].nodes;
+  assert.ok(down[2].z < down[3].z);
+  const up = moveItem(map, sel, 0, -9999).paths[0].nodes;
+  assert.ok(up[2].z > up[1].z);
+});
+
+test('a gate takes the piste it is dropped on; renaming a piste renames its gates', () => {
+  const map = fresh();
+  const gi = map.gates.findIndex((g) => g.path === 'main');
+  assert.equal(moveItem(map, { kind: 'gate', index: gi }, 50, 460).gates[gi].path, 'trees');
+  const renamed = setField(map, { kind: 'path', index: 1 }, 'id', 'glade');
+  assert.ok(renamed.gates.every((g) => g.path !== 'trees') && renamed.gates.some((g) => g.path === 'glade'));
+  assert.deepEqual(validateMap(renamed), []);
+});
+
+test('unknown fields survive edits', () => {
+  const map = fresh();
+  map.features[1].sponsor = 'x';
+  const next = moveItem(map, { kind: 'feature', index: 1 }, 5, 170);
+  assert.equal(next.features[1].sponsor, 'x');
+  assert.equal(updateItem(next, { kind: 'feature', index: 1 }, (f) => { f.height = 2; }).features[1].sponsor, 'x');
+});
+
+test('only whole things in lists can be removed', () => {
+  assert.equal(canRemove({ kind: 'node', path: 0, index: 1 }), false);
+  assert.equal(canRemove({ kind: 'start' }), false);
+  assert.equal(canRemove({ kind: 'object', index: 0 }), true);
+  assert.equal(getItem(fresh(), { kind: 'object', index: 0 }), null);
+});
+
+test('store: apply, undo and redo walk through exact earlier maps', () => {
+  const a = fresh(), store = createStore(a);
+  const reasons = [];
+  store.subscribe((r) => reasons.push(r));
+  assert.equal(store.canUndo, false);
+  store.apply('raise kicker', (m) => setField(m, { kind: 'feature', index: 1 }, 'height', 3));
+  const b = store.map;
+  store.apply('move gate', (m) => moveItem(m, { kind: 'gate', index: 0 }, 1, 60));
+  const c = store.map;
+  assert.equal(store.undoLabel, 'move gate');
+  store.undo(); assert.equal(store.map, b);
+  store.undo(); assert.equal(store.map, a);
+  store.undo(); assert.equal(store.map, a, 'nothing more to undo');
+  store.redo(); assert.equal(store.map, b);
+  store.redo(); assert.equal(store.map, c);
+  store.undo();
+  store.apply('new edit', (m) => setField(m, { kind: 'feature', index: 1 }, 'height', 1));
+  assert.equal(store.canRedo, false, 'a new edit clears redo');
+  assert.ok(reasons.every((r) => r === 'map'));
+});
+
+test('store: the analysis always belongs to the current map', () => {
+  const store = createStore(fresh());
+  const before = store.analysis;
+  assert.equal(before.level.features[7].height, 4);
+  store.apply('lower the big kicker', (m) => setField(m, { kind: 'feature', index: 7 }, 'height', 1));
+  assert.notEqual(store.analysis, before);
+  assert.equal(store.analysis.level.features[7].height, 1);
+  assert.ok(store.analysis.jumps[7].flights.normal.airTime < before.jumps[7].flights.normal.airTime);
+  store.undo();
+  assert.equal(store.analysis.level.features[7].height, 4);
+});
+
+test('store: an edit that would make the map invalid is refused', () => {
+  const store = createStore(fresh());
+  const a = store.map;
+  let rejected = null;
+  store.subscribe((r, d) => { if (r === 'rejected') rejected = d; });
+  assert.equal(store.apply('bad width', (m) => setField(m, { kind: 'feature', index: 1 }, 'width', -4)), false);
+  assert.equal(store.map, a);
+  assert.equal(store.canUndo, false);
+  assert.match(rejected.errors[0].message, /more than 0/);
+});
+
+test('store: a drag is many previews and one history entry', () => {
+  const store = createStore(fresh());
+  const a = store.map, sel = { kind: 'feature', index: 1 };
+  for (const x of [-11, -10, -9, -8]) store.preview(moveItem(store.baseMap, sel, x, 160));
+  assert.equal(store.dragging, true);
+  assert.equal(store.map.features[1].x, -8);
+  assert.equal(store.baseMap, a);
+  store.commit('move kicker');
+  assert.equal(store.dragging, false);
+  assert.equal(store.analysis.level.features[1].x, -8, 'analysis is up to date the moment the drag ends');
+  store.undo();
+  assert.equal(store.map, a, 'one undo takes back the whole drag');
+  assert.equal(store.canUndo, false);
+  store.preview(moveItem(store.baseMap, sel, 0, 160));
+  store.cancel();
+  assert.equal(store.map, a);
+  assert.equal(store.canUndo, false);
+});
+
+test('store: the selection is dropped when its item no longer exists', () => {
+  const store = createStore(fresh());
+  const last = store.map.gates.length - 1;
+  store.select({ kind: 'gate', index: last });
+  assert.deepEqual(store.selection, { kind: 'gate', index: last });
+  store.apply('delete gate', (m) => removeItem(m, { kind: 'gate', index: 0 }));
+  assert.equal(store.selection, null);
+  store.select({ kind: 'gate', index: 999 });
+  assert.equal(store.selection, null);
+});

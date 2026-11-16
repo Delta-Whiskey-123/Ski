@@ -24,9 +24,59 @@
 
 - **Breakable scenery (owner request, 2026-11-16, look approved from `spikes/scenery.html`).** Trail direction post, trail map board, caution sign (cliff symbol, no words), small and big snowman, built in code. Hitting one breaks it and cuts her speed once: signs 15 %, small snowman 20 %, big snowman 25 % (`scenery` group in `tuning.js`). Signs vanish; snowmen leave snow chunks and their scarf. Jumping higher than a piece clears it. Everything comes back at the next run. 14 pieces placed on the test slope (`scenery` in `level1.js`). Checked from the console: the 20 % and 15 % cuts, a hit 1 m up in the air, a clean pass 3 m over the big snowman, and the models and debris in the game view at 812x375. Not played by hand on a phone.
 
+## Map editor (separate track, branch `map-editor`)
+
+A desktop tool for designing courses, in `editor/`. Not part of the shipped game. Its work list is `editor/MILESTONES.md`; its design reference is `editor/DESIGN.md`. Nothing here is merged to `main` yet.
+
+**Done (E0, foundation, 2026-11-16):**
+
+- **Map file format**, version 1: a game level plus `format`, `version`, `meta`, a final `gates` list and an `objects` list for placeholders. Validation with plain-language errors that name the bad value; a migration hook for future versions; a newer file is refused with a clear message.
+- **Map to level and back** as pure functions. Level 1 converts to a map and back to an identical level; fields the editor does not know survive at every depth.
+- **Placeholder catalogue** (hut, lodge, lift station, pylon, rock, signpost, banner, fence run) with footprint, collision radius and height. They are kept in `objects`, which the game does not read, so they cannot reach today's game.
+- **Jump prediction** with the game's real `step()` on a real `createTerrain()`, at three speeds: slow (carving at full lock, 16.1 m/s at grade 1), normal (straight, no input, 24.0 m/s), adrenaline (boost held with adrenaline running, 41.8 m/s). Always with default tuning.
+- **Placement rules** in one table (14 rules): course ends, branch joins, 25 m of forest between branches, 60 m between jumps, 50 m clear and straight landing, scenery and objects off landings, no gate 30 m before or 40 m after a jump, gates and features on a piste, buildings clear of pistes, and the predicted landing (each speed) clear and on a piste.
+- **Generator**: a whole course from seed, length, difficulty, branches and jump density; wild at the top (rollers, ledges, rocks, caution signs), resort at the bottom (kickers, pylons, huts, lodge, banners, snowmen). It checks itself with the real rules and repairs or retries.
+- **Command line** `tools/map.mjs`: generate, validate, jumps, convert, import, rules, with exit codes 0 / 1 / 2.
+- **Editor page** `editor/index.html`: plan to scale with pan and zoom; pistes, features, gates, scenery, objects, forest and fences; select and drag piste points, features, gates, scenery, objects and the start; properties panel; predicted flights on the plan and as a side view; live warning list that jumps to the problem; generate dialog; import (file picker and drag and drop); export map and level module; undo and redo; autosave; Delete key.
+- **38 automated tests** (`node --test "editor/test/*.test.mjs"`).
+
+**Changes made to game files (none alters how the game plays):**
+
+- `js/terrain.js`: `pathAt()` moved out of `createTerrain()` and exported (same code). The gate generator moved into exported `generateGates(level)` with a helper `jumpZone(feature)`; `createTerrain()` calls it. If a level has its own `gates` list, `createTerrain()` uses it instead of generating; level 1 has none, so it generates as before.
+- Nothing else in `js/`, `css/`, `index.html` or `vendor/` was touched.
+
+**Verified, and how:**
+
+- Level 1 gates are byte-identical to before the change: saved before editing `terrain.js` (`editor/test/level1-gates.baseline.json`), compared by a test, and compared again in the running game page (`summit.terrain.gates`).
+- The game page loads with a clean console after the change (http://localhost:8130/, checked from the console; no run was ridden by hand).
+- Predicted air times against the measured ones above (normal speed): 4.5 m ledge 0.75 s (measured 0.75), second roller 0.67 s (0.7), big kicker 1.68 s (1.7), 12 m ledge 1.47 s (1.5). The first roller predicts 0.55 s against a measured 0.3 s: in the measured run she reaches it 64 m after a standing start, well below steady speed, so this is expected, not an error.
+- The command line was run on level 1 (6 warnings, exit 1) and on generated maps (PASS, exit 0). 36 generated courses across lengths 600 to 4000 m, difficulty 1 to 5, 0 to 6 branches and every jump density all passed every rule at the first attempt, and the same seed gave the same file each time.
+- In Chrome, at 1400x850, clean console throughout: the plan drew level 1 and a generated course correctly (screenshots looked at); a feature, a piste point and a gate were dragged; undo and redo by button and by Ctrl+Z / Ctrl+Y; a panel edit; a refused edit (negative width, with its message); Delete; wheel zoom; pan; click a warning to jump to it; generate; export then re-import gave the identical map; a file from a "newer version" was refused with the reason and changed nothing; the working map came back after a reload (autosave).
+
+**Not verified:**
+
+- The real Windows file picker, a real file dragged in from the desktop, and a download really landing on disk. Import was tested by handing the page a file object, and export by capturing the text it was about to download. The code paths are the real ones; the operating-system parts are not exercised.
+- Only the first drag (a ledge) and the first screenshots used real mouse input. The preview pane then went into the background, so the later drags (piste point, gate), wheel zoom, pan and Delete were tested by sending the page the same mouse and key events from the console.
+- The side-view sketch in the panel was not looked at in a screenshot at full size.
+- Chrome only; no other browser was tried (the editor is specified for desktop Chrome).
+- No generated course has been converted and ridden in the game: the game cannot yet load a second level (`editor/MILESTONES.md`, E8).
+
+**Known limits of the editor:**
+
+- Level 1 (the test slope) has 6 warnings under the rules: two rollers land just before a gate at normal speed, three adrenaline landings come down on scenery or on the next jump, and the tree route has only 14 m of forest beside the main piste for a stretch. They are true of the test slope; it was never designed to these rules.
+- "Adrenaline" is the worst case (boost held, 41.8 m/s): the big kicker flies 145 m at it, against 42 m at normal speed. Warnings at that speed are real but harsh. If they prove too noisy, the cure is a severity setting per speed in the `RULES` table, which is the owner's call.
+- Because of those long flights, the generator removes many jumps when asked for high jump density or difficulty (for example 14 kept of 32 at difficulty 5, density 1). It says how many in its report.
+- Generated branches each get their own stretch of mountain: never two side by side, no cross-links, no branch off a branch. Hand editing of pistes arrives with E3.
+- Prediction rides the centre line of a feature, straight, at a held speed. It does not try angled approaches or jump pops, and it does not check for tall objects under the flight path, only where she lands.
+- Generated gates keep the game generator's exact positions, so their `x` values have many decimals in the file.
+- New things can only be added by generating; placing them by hand is E1. Pistes can be reshaped but not added or deleted (E3).
+- This track's first session was run from another project's folder (the app would not attach the ski folder), using full paths. Nothing in the game or the editor depends on that.
+
 ## Next
 
-Milestone 1 in `MILESTONES.md` (crashes and obstacles).
+Game: milestone 1 in `MILESTONES.md` (crashes and obstacles).
+
+Map editor: E1 in `editor/MILESTONES.md` (place anything from a palette).
 
 ## Waiting on the owner
 

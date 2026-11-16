@@ -81,7 +81,7 @@ Reads and writes files, calls the core, prints. All logic stays in the core. Exi
 
 ### Tests: `editor/test/*.test.mjs`
 
-Node's built-in runner: `node --test editor/test/`.
+Node's built-in runner, no dependencies: `node --test "editor/test/*.test.mjs"` (the quotes and the pattern are needed; a bare folder name does not work on this Node version). `core.test.mjs` covers the core and the command line; `store.test.mjs` covers the store and the actions, which need no browser.
 
 ## 3. Data flow
 
