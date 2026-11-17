@@ -46,7 +46,7 @@ export function createView(canvas, terrain, rider, quality = 'high') {
   const props = createProps(scene, terrain);
   const effects = createEffects(scene, terrain);
   const scenery = createScenery(scene, terrain);
-  const model = createRiderModel(rider);
+  const model = createRiderModel(rider, terrain);
   scene.add(model.root);
 
   const cam = { x: 0, y: 0, up: 0, lead: T.camera.lead, ready: false };

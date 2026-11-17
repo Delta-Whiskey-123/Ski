@@ -3,17 +3,38 @@
 // travels along the model's +z.
 //
 // Node order, outermost first:
-//   root (position) > yaw (heading) > flip (about hip height) > spin > lean > body
+//   root (position) > slope (lies on the snow) > yaw (heading) > flip (about hip height) > spin > lean > body
+//
+// On the snow the whole figure tilts so the board lies on the surface under
+// it (front to back and side to side). In the air that tilt eases back to
+// level. Drawing only: the simulation never sees it.
 import * as THREE from '../../vendor/three.module.min.js';
 
 const SCALE = 1.75;       // drawn larger than life so she reads from the high camera
 const HIP = 0.85;
+const HALF_BOARD = 0.8 * SCALE;   // board centre to nose, in world metres
+const PROBE = 0.15;       // how far either side of the board centre the slope is measured
+const EDGE = 0.3;         // if the slope differs by more than this across the centre, it is an edge (a jump lip), not a curve
+const MAX_SINK = 0.5;     // snow rising more than this above the board's line at nose or tail is a wall, not a ramp
+const LEVEL_RATE = 6;     // how quickly she levels out after take-off (per second)
+const SETTLE_RATE = 22;   // how quickly she matches the snow after landing (per second)
+const UP = new THREE.Vector3(0, 1, 0);
 
-export function createRiderModel(rider) {
+// Slope of the ground through (x, z) along the direction (dx, dz). At an edge
+// such as a jump lip the two sides disagree; the flatter side is the snow she
+// is actually standing on.
+function slopeAlong(terrain, x, z, h0, dx, dz) {
+  const behind = (h0 - terrain.heightAt(x - dx * PROBE, z - dz * PROBE)) / PROBE;
+  const ahead = (terrain.heightAt(x + dx * PROBE, z + dz * PROBE) - h0) / PROBE;
+  if (Math.abs(behind - ahead) > EDGE) return Math.abs(behind) < Math.abs(ahead) ? behind : ahead;
+  return (behind + ahead) / 2;
+}
+
+export function createRiderModel(rider, terrain = null) {
   const C = rider.colours;
-  const root = new THREE.Group(), yaw = new THREE.Group(), flip = new THREE.Group(),
+  const root = new THREE.Group(), slope = new THREE.Group(), yaw = new THREE.Group(), flip = new THREE.Group(),
     spin = new THREE.Group(), lean = new THREE.Group(), body = new THREE.Group();
-  root.add(yaw); yaw.add(flip); flip.add(spin); spin.add(lean); lean.add(body);
+  root.add(slope); slope.add(yaw); yaw.add(flip); flip.add(spin); spin.add(lean); lean.add(body);
   flip.position.y = HIP; spin.position.y = -HIP;
   root.scale.setScalar(SCALE);
 
@@ -57,10 +78,41 @@ export function createRiderModel(rider) {
   box(tail, 0.22, 0.08, 0.08, C.hair, -0.56, -0.03, 0);
 
   let crouch = 0, tailSwing = 0;
+  // Slope tilt: (tiltX, tiltZ) is how far the snow's "straight up" leans across and down the hill,
+  // lift raises her so a curved ramp touches the nose and tail instead of cutting through them,
+  // grounded (0..1) fades all of it out in the air.
+  let tiltX = 0, tiltZ = 0, lift = 0, grounded = 1;
+  const normal = new THREE.Vector3();
+
+  function matchSnow(s) {
+    const fx = Math.sin(s.heading), fz = Math.cos(s.heading);   // the way the board points
+    const h0 = terrain.heightAt(s.x, s.z);
+    const along = slopeAlong(terrain, s.x, s.z, h0, fx, fz);
+    const across = slopeAlong(terrain, s.x, s.z, h0, fz, -fx);
+    // How far the snow rises above a straight board at the nose and at the tail (a ramp curves up).
+    const over = (dir) => {
+      const d = dir * HALF_BOARD;
+      const rise = terrain.heightAt(s.x + fx * d, s.z + fz * d) - (h0 + along * d);
+      return Math.max(0, Math.min(MAX_SINK, rise));
+    };
+    const nose = over(1), tail = over(-1);
+    const pitch = along + (nose - tail) / (2 * HALF_BOARD);
+    lift = (nose + tail) / 2;
+    tiltX = -(fx * pitch + fz * across);
+    tiltZ = -(fz * pitch - fx * across);
+  }
+
   return {
     root,
     update(s, dt) {
       root.position.set(s.x, s.y, s.z);
+      if (terrain) {
+        if (!s.air) matchSnow(s);   // in the air the last snow angle is kept and faded out
+        grounded += ((s.air ? 0 : 1) - grounded) * Math.min(1, (s.air ? LEVEL_RATE : SETTLE_RATE) * dt);
+        normal.set(tiltX * grounded, 1, tiltZ * grounded).normalize();
+        slope.quaternion.setFromUnitVectors(UP, normal);
+        root.position.y += lift * grounded;
+      }
       yaw.rotation.y = s.heading;
       flip.rotation.x = s.flip;
       spin.rotation.y = s.spin;
