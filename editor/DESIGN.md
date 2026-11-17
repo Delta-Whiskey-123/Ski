@@ -42,7 +42,7 @@ Small example (a valid map):
 
 ### Why placeholders are in `objects`, not `props`
 
-`terrain.js` pushes `level.props` straight into the forest list. Today the renderer skips prop types it does not know (`js/render/props.js`: `if (!mesh ...) continue`), so nothing would crash. But game milestone 1 turns everything in that list into a crash obstacle, which would make placeholders **invisible things you crash into**. So placeholders live in `objects`, a key the game does not read at all. `mapToLevel()` leaves `objects` out when it is empty. A later game milestone gives each catalogue type a model and collision and starts reading `level.objects`.
+`terrain.js` pushes `level.props` straight into the forest list. Today the renderer skips prop types it does not know (`js/render/props.js`: `if (!mesh ...) continue`), so nothing would crash. But game milestone 1 turns everything in that list into a crash obstacle, which would make placeholders **invisible things you crash into**. So placeholders live in `objects`, a key the game reads for one thing only: its generated forest leaves a clearing round each object (since E1b), so they are never collided with or drawn yet. `mapToLevel()` leaves `objects` out when it is empty. A later game milestone gives each catalogue type a model and collision and starts reading `level.objects`.
 
 ## 2. Modules
 
@@ -55,8 +55,8 @@ Runs unchanged in Chrome and in Node. **Must never** touch the DOM, `window`, `l
 | `rng.js` | The seeded random source (`createRng(seed)`). | Use `Math.random`. |
 | `format.js` | `MAP_VERSION`, `validateMap()` (readable errors with the path to the bad value), `migrateMap()` and the `MIGRATIONS` table, `parseMap()` / `serializeMap()` (text in, text out), `emptyMap()`. | Change a map it is validating. Know about rules or physics. |
 | `convert.js` | `levelToMap()`, `mapToLevel()`, `levelModuleSource()` (the text of a `js/data/levels/*.js` file). | Drop a field it does not know. |
-| `catalogue.js` | Placeholder object types as data (name, footprint, collision radius, height, where it belongs) and `objectCircles()`. | Draw anything. |
-| `geometry.js` | Measuring helpers over a map: which piste is where, lanes, jump take-off positions. Uses the game's exported `pathAt()` and `jumpZone()`. | Re-implement the piste interpolation. |
+| `catalogue.js` | Re-exports `js/data/objects.js` (moved there in E1b because the game reads it): placeholder object types as data (name, footprint, collision radius, height, where it belongs), `objectCircles()`, `objectFootprint()`, `pointGap()`. | Draw anything. |
+| `geometry.js` | Measuring helpers over a map: which piste is where, lanes, jump take-off positions, and each placed thing's footprint with the gaps between footprints and to the fence (`footprint()`, `footprintGap()`, `fenceGap()`). Uses the game's exported `pathAt()`, `jumpZone()` and `terrain.fenceAt()`. | Re-implement the piste interpolation. |
 | `predict.js` | Jump prediction by calling the game's real `step()` on a real `createTerrain()`. Defines the three speed profiles. | Contain flight maths of its own. |
 | `rules.js` | The `RULES` table (name, distance, severity, message) and `checkMap()`, which returns warnings with a location. | Change the map. Hide a distance inside a check function. |
 | `analyse.js` | `analyse(map)`: one call that returns `{ level, terrain, jumps, warnings }`. The editor and the command line both use only this. | Cache across maps. |
@@ -133,11 +133,27 @@ A "jump" for spacing and gate rules is a kicker or a ledge (the game's `jumpZone
 
 ## 7. Changes made to game files
 
-Listed in `PROGRESS.md` too. None changes how the game plays.
+Listed in `PROGRESS.md` too. Up to E1, none changed how the game plays. E1b made two changes the owner asked for (2026-11-17) that change the generated forest; everything else stays as it was.
+
+- E1b, `js/terrain.js`: new `terrain.fenceAt(z)` (where the red fence is at a z; the fences are now drawn from it, same points). The generated forest keeps every tree's edge `forest.fenceClear` (1 m) from the fence and `forest.objectClear` (1 m) from every placed object in `level.objects` (both new values in `js/tuning.js`). Level 1 has no objects, so the only change to it is one tree that stood 0.75 m from the fence. Its gates are unchanged (the baseline test still passes).
+- E1b, `editor/core/catalogue.js` moved to `js/data/objects.js` (the move E8 had planned), with `objectFootprint()` and `pointGap()` added so the forest and the editor's rules measure in exactly the same way. `editor/core/catalogue.js` re-exports it.
 
 - `js/terrain.js`: `pathAt()` moved from inside `createTerrain()` to an exported function (same code). The gate generator moved into exported `generateGates(level)` and `jumpZone(feature)`; `createTerrain()` calls it. If a level has a `gates` list, `createTerrain()` uses it instead of generating (level 1 has none, so it generates as before). Verified: level 1 produces byte-identical gates (`editor/test/level1-gates.baseline.json`).
 
-## 8. The 3D preview pane (later work): what was found in `js/render/*`
+## 8. Ground rules for every map
+
+Decided by the owner on 2026-11-17. They apply to hand-made and generated maps alike. All are **warnings** (orange): a map that breaks one can still be saved and used, but the generator never hands one out without saying so in its report (in practice every generated course passes). The distances live in the `RULES` table; change them there.
+
+1. **Gates keep away from jumps** (`gate-near-jump`). No gate within 30 m before a jump or on it. After a jump, none until 10 m past where she lands at normal speed (the real physics). The owner chose normal speed rather than every speed: at adrenaline speed she can still fly past or onto a gate, which `landing-predicted` reports as before.
+2. **The red fence holds her in** (game physics, not an editor rule). She can never get past the side fences, on the snow or in the air; touching one is not a crash, she slides along it. This is written into game milestone 1 (`MILESTONES.md`) and is built there. The jump predictions will follow it by themselves, because they run the real `step()`.
+3. **Nothing touches the fence** (`clear-of-fence`). Trees, scenery, objects and features keep their whole footprint 1 m from the fence line, on either side. The game's own forest obeys this (`forest.fenceClear`).
+4. **Nothing overlaps anything else** (`no-overlap`). Features, gates, scenery, objects and hand-placed trees keep 1 m apart, edge to edge, and 1 m from the generated forest. The game's forest leaves a clearing round every placed object (`forest.objectClear`), so buildings can stand in the woods. A gate against a jump is left to rule 1.
+
+A footprint is the thing's own size, from its data: `r` or `halfW`/`halfD` (scenery), the catalogue shape (objects: a rect's outline, a fence run thickened by its post radius), width by span (features), the gate's width plus its poles, `r` (trees).
+
+The generator follows them by placing scenery and objects clear in the first place (it tries a few spots up and down the slope, without using random numbers), then its check and repair loop removes anything left over.
+
+## 9. The 3D preview pane (later work): what was found in `js/render/*`
 
 Checked on 2026-11-16. The render modules can be reused as they are:
 

@@ -63,6 +63,7 @@ Touch gestures, multi-touch and real phone frame rate cannot be verified on desk
 | `js/data/levels/level1.js` | Level 1 as data. |
 | `js/data/riders.js` | Riders, equipment, and stat-to-multiplier mapping. |
 | `js/data/scenery.js` | Breakable scenery types: hit shape, height, which slow-down value. |
+| `js/data/objects.js` | Placed object types (hut, lodge, pylon, rock...): sizes and footprints. The forest keeps clear of them; models and collisions come later. |
 | `js/data/tricks.js` | Trick names (and, later, values). |
 | `js/render/view.js` | Renderer, light, camera, quality presets. |
 | `js/render/terrain-mesh.js` | Snow surface in chunks around the rider. |
@@ -114,7 +115,7 @@ Work on the editor happens on the branch `map-editor`. Do not push editor work t
 | `editor/index.html`, `editor/editor.css` | The editor page. |
 | `editor/core/format.js` | Map version, validation with readable errors, migration hook, text in and out. |
 | `editor/core/convert.js` | Map to level and level to map; writes level modules. |
-| `editor/core/catalogue.js` | Placeholder object types (hut, lodge, pylon, rock...) as data. |
+| `editor/core/catalogue.js` | Re-exports `js/data/objects.js` (the placed object types). |
 | `editor/core/geometry.js` | Measuring helpers over a map, built on the game's `pathAt()`. |
 | `editor/core/predict.js` | Jump prediction by running the game's real `step()`. The three speed profiles. |
 | `editor/core/rules.js` | The `RULES` table and `checkMap()`. |

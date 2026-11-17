@@ -59,10 +59,41 @@ A desktop tool for designing courses, in `editor/`. Not part of the shipped game
 
 **Not verified for E1:** the clicks were real mouse events in headless Chrome, not a person at a desktop; how the ghost feels to use by hand is for the owner to judge.
 
+**Done (E1b, ground rules for every map, 2026-11-17):**
+
+The owner's ground rules now hold on every map, hand-made or generated (written up in `editor/DESIGN.md` section 8). All are warnings (orange), and every generated course passes them.
+
+- **Gates keep away from jumps** (`gate-near-jump`, changed): none within 30 m before a jump or on it, and after it none until 10 m past where she lands at normal speed. The owner chose normal speed: measured at every speed it would have removed about 1 in 3 gates and left up to 171 m without a gate after the biggest jumps.
+- **Nothing touches the red fence** (`clear-of-fence`, new): trees, scenery, objects and features keep their whole footprint 1 m from the fence, on either side.
+- **Nothing overlaps** (`no-overlap`, new): features, gates, scenery, objects and hand-placed trees keep 1 m apart edge to edge, and 1 m from the generated forest.
+- **The fence holds her in**: game physics, so it is written into game milestone 1 (`MILESTONES.md`: a wall, not a crash, not jumpable; `fence.inset` and `fence.scrape`), not built here.
+- **The game's forest** keeps every tree 1 m clear of the fence and of every placed object (owner's choice; see the game file changes below). Buildings beyond the fence get a clearing, so the generator no longer loses its lodge and lift station to the overlap rule.
+- **The generator** places scenery and objects in a clear spot from the start (fixed shifts up and down the slope, no random numbers, so seeds still repeat), then repairs the rest.
+- **Footprints** come from each thing's own data (`footprint()`, `footprintGap()`, `fenceGap()` in `editor/core/geometry.js`). The forest and the rules measure trees against objects with the same function, `pointGap()`, so they always agree.
+- `editor/maps/generated-11.map.json` regenerated from its own seed and settings (owner's choice; 3 gates changed). Level 1 (`js/data/levels/level1.js`) and `editor/maps/test-slope.map.json` were not touched, as the owner asked.
+- 4 new tests and 4 more generator cases (47 tests in all).
+
+**What the gate rule does (measured, normal speed):** level 1: no gate flagged (its gate-free stretches after its jumps are 26 to 52 m). Generated courses (seeds 7, 4242, 11): 0, 0 and 1 gate flagged before repair, 0 after; gate-free stretches 21 to 50 m after each jump. The game's own gate maker already keeps gates off jumps, so the rule rarely bites. Most gates the generator drops (8 to 11 per course) are from the older `landing-predicted` rule (a gate where she lands at some speed); the new overlap rule adds 2 or 3 (a gate on a sign or snowman).
+
+**Verified for E1b, and how:**
+
+- `node --test "editor/test/*.test.mjs"`: 47 pass. Each new rule fires on a small map that breaks it (rock inside and across the fence, a hut beyond it, a snowman, a hand-placed tree, a fence run; two snowmen, a snowman on a roller, a sign on a gate, a rock by a tree, a tree in the forest) and stays quiet on one that does not. Generated courses at 600 to 4000 m, difficulty 1 to 5 and 0 to 6 branches pass; the same seed gives the same file; level 1's gates are byte-identical to the baseline.
+- Command line: a freshly generated map (seed 5150, 3200 m, difficulty 4, 5 branches) and the regenerated example both PASS. Level 1: 0 errors, 7 warnings. That is the 6 it had before plus **one new one, from `no-overlap`: the gate at 501 m overlaps the roller at 490** (a real clipping problem on level 1, left as it is because the owner does not want level 1 edited now).
+- In headless Chrome (1500x900): a demo map with one break of each rule showed each warning in the list and as a mark on the plan (screenshot looked at); Generate (seed 31) gave "Passes every rule" with no warnings, screenshot looked at; zoomed in on its lodge, the forest leaves it a clearing. Export then re-import gave the identical map. Editor console clean. The game page loads and runs 3 s of `summit.tick` with no errors.
+
+**Not verified for E1b:** the fence as a wall cannot be tried yet (game milestone 1 builds it). Nobody has looked at the changed forest in the game's 3D view; on level 1 the only difference is one tree removed beside the fence.
+
 **Changes made to game files (none alters how the game plays):**
 
 - `js/terrain.js`: `pathAt()` moved out of `createTerrain()` and exported (same code). The gate generator moved into exported `generateGates(level)` with a helper `jumpZone(feature)`; `createTerrain()` calls it. If a level has its own `gates` list, `createTerrain()` uses it instead of generating; level 1 has none, so it generates as before.
-- Nothing else in `js/`, `css/`, `index.html` or `vendor/` was touched.
+- Up to E1 nothing else in `js/`, `css/`, `index.html` or `vendor/` was touched.
+
+**Changes made to game files in E1b (owner-approved, 2026-11-17; these change the generated forest only):**
+
+- `js/terrain.js`: new `terrain.fenceAt(z)` (where the red fence is; the fence lines are now drawn from it, same points). The forest leaves out any tree whose edge would be within `forest.fenceClear` (1 m) of the fence or within `forest.objectClear` (1 m) of a placed object in `level.objects`. On level 1 this removes one tree that stood 0.75 m from the fence; nothing else on level 1 changes (it has no objects), and its gates are unchanged.
+- `js/tuning.js`: new group `forest` with `fenceClear` and `objectClear`.
+- `js/data/objects.js`: the placed object table, moved from `editor/core/catalogue.js` (which now re-exports it), with `objectFootprint()` and `pointGap()` added. This is the move E8 had planned, done early because the forest needs the sizes.
+- `MILESTONES.md`, game milestone 1: the red side fence bullet and its Check rewritten as the owner asked (a wall, not a crash; `fence.inset`, `fence.scrape`). Nothing else in it changed.
 
 **Verified, and how:**
 
@@ -88,6 +119,7 @@ A desktop tool for designing courses, in `editor/`. Not part of the shipped game
 - Prediction rides the centre line of a feature, straight, at a held speed. It does not try angled approaches or jump pops, and it does not check for tall objects under the flight path, only where she lands.
 - Generated gates keep the game generator's exact positions, so their `x` values have many decimals in the file.
 - Pistes can be reshaped but not added or deleted (E3). Gates cannot be added from the palette yet (E2).
+- The plan draws tree markers 1.6 times their real size so they are easy to see, so trees look closer to buildings and the fence than they really are. The rules measure the real sizes.
 - A feature dragged past another is not re-sorted (only a newly placed one goes in at its place); the game's terrain looks features up by position, so the order does not change how a course plays.
 - This track's first session was run from another project's folder (the app would not attach the ski folder), using full paths. Nothing in the game or the editor depends on that.
 
@@ -95,7 +127,7 @@ A desktop tool for designing courses, in `editor/`. Not part of the shipped game
 
 Game: milestone 1 in `MILESTONES.md` (crashes and obstacles).
 
-Map editor: E2 in `editor/MILESTONES.md` (gates: add, flip, regenerate).
+Map editor: E2 in `editor/MILESTONES.md` (gates: add, flip, regenerate). E1b (ground rules) is done.
 
 ## Waiting on the owner
 

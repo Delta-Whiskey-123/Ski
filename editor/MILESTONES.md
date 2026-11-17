@@ -37,6 +37,19 @@ Rules for every milestone:
 
 **Check:** place one of every type; each appears in the right place, is selected, shows its fields, and can be dragged, undone and redone. A kicker placed just above a gate shows a `gate-near-jump` warning at once. A hut dropped on a piste shows `object-clear-of-piste`. Export, re-import: nothing lost. The placeholder objects do not appear in `mapToLevel(map).props` (already tested; keep that test passing).
 
+## - [x] E1b. Ground rules for every map
+
+**Goal:** the owner's ground rules (2026-11-17) hold on every map, hand-made or generated. See `editor/DESIGN.md` section 8.
+
+- Rules in the `RULES` table, all `warning`: `gate-near-jump` changed (no gate 30 m before a jump, on it, or until `margin` 10 m past its landing at `speed` normal: the owner chose normal speed over every speed); new `clear-of-fence` (trees, scenery, objects and features keep their footprint 1 m from the red fence, either side); new `no-overlap` (features, gates, scenery, objects and hand-placed trees 1 m apart edge to edge, and 1 m from the generated forest; a gate against a jump is left to `gate-near-jump`).
+- Footprints from the data tables, in `core/geometry.js` (`footprint()`, `footprintGap()`, `fenceGap()`); the fence position from the game's new `terrain.fenceAt(z)`.
+- Game forest (owner's choice, two questions asked): keeps trees 1 m from the fence (`forest.fenceClear`) and 1 m from every placed object (`forest.objectClear`). This needed the object table in the game: `editor/core/catalogue.js` moves to `js/data/objects.js` and re-exports.
+- Generator: places scenery and objects in a clear spot (fixed shifts up and down the slope, no random numbers), then the usual repair. Every generated course passes.
+- The red fence as a wall is game physics: written into game milestone 1, not built here.
+- `editor/maps/generated-11.map.json` regenerated from its own seed and settings. Level 1 and `test-slope.map.json` are not touched (owner).
+
+**Check:** each new rule fires on a small map that breaks it and is quiet on one that does not; generated courses across 600 to 4000 m, difficulty 1 to 5 and 0 to 6 branches pass; the same seed gives the same file; level 1's gates are unchanged.
+
 ## - [ ] E2. Gates: add, flip, regenerate
 
 **Goal:** full control of the gate list. (Dragging and deleting a gate already work.)
@@ -89,7 +102,7 @@ Rules for every milestone:
 
 ## - [ ] E6. 3D preview pane
 
-**Goal:** see the real game view of the spot being edited. Read `editor/DESIGN.md` section 8 first: it lists what was found in `js/render/*`.
+**Goal:** see the real game view of the spot being edited. Read `editor/DESIGN.md` section 9 first: it lists what was found in `js/render/*`.
 
 - New file `editor/app/preview3d.js` and a `<canvas id="preview">` in a resizable pane under the plan (hidden by default; toolbar toggle "3D"). It imports the game's own `createView` from `js/render/view.js`. Do not copy render code.
 - The pane shows the game camera at a **preview point**: the selected item's position, or where the plan was last clicked. Build a rider state with `createRider(level)`, set `x`, `z`, `y = terrain.heightAt(x, z)`, then `view.snap(state)` and `view.render(state, 0)`. A slider under the pane moves the point up and down the slope along the nearest piste centre, so you can "walk" a line. Draw the preview point on the plan as a small camera mark.
@@ -116,7 +129,7 @@ Rules for every milestone:
 
 - A level is still a module under `js/data/levels/`. The route from map to game is `node tools/map.mjs convert editor/maps/<name>.map.json --out js/data/levels/<id>.js`, then register it in `js/data/levels/index.js`. The game does **not** read `.json` map files at run time (no network requests).
 - `createTerrain()` already uses a level's own `gates` list. Nothing to do there.
-- Make the game read `level.objects`: in `js/terrain.js`, turn each object into collision circles using the sizes in `editor/core/catalogue.js`. Decision: **move `catalogue.js` to `js/data/objects.js`** (it is data, like `js/data/scenery.js`) and re-export it from `editor/core/catalogue.js` so the editor's imports keep working. The circles go into the obstacle list that game milestone 1's `js/collision.js` checks, with each type's `h`.
+- Make the game read `level.objects` for collisions: in `js/terrain.js`, turn each object into collision circles using the sizes in `js/data/objects.js` (moved there from `editor/core/catalogue.js` in E1b, which re-exports it; the forest already leaves a clearing round each object). The circles go into the obstacle list that game milestone 1's `js/collision.js` checks, with each type's `h`.
 - Models for each catalogue type in a new `js/render/objects.js`, built in code with `mergeParts` like the other props: hut, lodge, lift station, pylon (with cables drawn between consecutive pylons), rock, signpost, banner, fence run. Remove the editor-only placeholder meshes from `preview3d.js` once the real ones exist.
 - `js/main.js` builds the world once for level 1 today. Rebuild terrain and view when the chosen level changes (the note in `CLAUDE.md`, "Adding a level", already says this is needed); use the `dispose()` added in E6.
 - Replace `js/data/levels/level1.js` with the converted E7 map only when the owner says so. Then set `goldTimes` and the Race medal times by riding it, as game milestone 5 describes.

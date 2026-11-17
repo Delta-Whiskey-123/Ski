@@ -20,14 +20,15 @@
 // later only needs that stage re-run with a different stream name; nothing
 // here prevents it, and nothing here builds it.
 
-import { generateGates } from '../../js/terrain.js';
+import { generateGates, createTerrain } from '../../js/terrain.js';
+import { mapToLevel } from './convert.js';
 import { createRng, round } from './rng.js';
 import { MAP_FORMAT, MAP_VERSION } from './format.js';
 import { OBJECT_TYPES } from './catalogue.js';
 import { analyse } from './analyse.js';
 import { rule } from './rules.js';
 import { PROFILES, entrySpeed } from './predict.js';
-import { pathAt, corridorOut, takeoffZ, isJump, featureSpan, sameLine } from './geometry.js';
+import { pathAt, corridorOut, takeoffZ, isJump, featureSpan, sameLine, footprint, footprintBounds, footprintGap, fenceGap } from './geometry.js';
 
 export const GENERATOR_DEFAULTS = { seed: 1, length: 2600, difficulty: 3, branches: 3, jumpDensity: 0.5 };
 export const GENERATOR_LIMITS = {
@@ -44,6 +45,7 @@ const G = {
   jumpGap: [260, 90],         // typical metres between features at density 0 and 1
   maxAttempts: 8,
   maxRepairRounds: 14,
+  shifts: [0, 3, -3, 6, -6, 9, -9, 12, -12],   // metres up or down the slope tried to find a clear spot
 };
 
 const WILD_NAMES = ['glade', 'cliffs', 'gully', 'bowl', 'chute', 'ridge'];
@@ -101,8 +103,9 @@ function buildAttempt(S, attempt) {
   buildBranches(map, S, stream('branches'), isWild, notes);
   for (const p of map.paths) buildFeatures(map, S, p, stream(`features:${p.id}`), isWild);
   map.features.sort((a, b) => a.z - b.z);
-  buildScenery(map, S, stream('scenery'), wildEnd);
-  buildObjects(map, S, stream('objects'), wildEnd);
+  const fit = clearSpot(map);
+  buildScenery(map, S, stream('scenery'), wildEnd, fit);
+  buildObjects(map, S, stream('objects'), wildEnd, fit);
 
   const v = entrySpeed(PROFILES.find((p) => p.id === 'normal'), 1);
   const gold = Math.round(S.length / v);
@@ -249,9 +252,44 @@ function buildFeatures(map, S, path, rng, isWild) {
   }
 }
 
+// ---- placing things clear of each other, the forest and the fence
+// Returns fit(kind, item): the item, moved up or down the slope by the first
+// of G.shifts that keeps it `clearance` metres from the fence, the generated
+// forest (scenery only: the game's forest leaves a clearing round every
+// object) and everything already placed (rules clear-of-fence and no-overlap).
+// If no shift works it is returned where it was, and repair() deals with it.
+// Uses no random numbers, so the random streams are not disturbed.
+function clearSpot(map) {
+  const terrain = createTerrain(mapToLevel(map));         // the forest depends on the pistes only
+  const F = rule('clear-of-fence').clearance, O = rule('no-overlap').clearance;
+  const LISTS = { feature: 'features', scenery: 'scenery', object: 'objects' };
+  const ok = (kind, item) => {
+    const fp = footprint(kind, item), b = footprintBounds(fp);
+    if (fenceGap(fp, terrain.fenceAt) < F) return false;
+    const trees = kind === 'object' ? [] : terrain.propsBetween(b.minZ - O - 2, b.maxZ + O + 2);   // the game's forest clears round objects
+    if (trees.some((p) => p.x > b.minX - O - 2 && p.x < b.maxX + O + 2 && footprintGap(fp, footprint('prop', p)) < O)) return false;
+    for (const [k, key] of Object.entries(LISTS)) {
+      for (const other of map[key]) {
+        const q = footprint(k, other), qb = footprintBounds(q);
+        if (qb.minZ > b.maxZ + O || qb.maxZ < b.minZ - O || qb.minX > b.maxX + O || qb.maxX < b.minX - O) continue;
+        if (footprintGap(fp, q) < O) return false;
+      }
+    }
+    return true;
+  };
+  return (kind, item) => {
+    for (const dz of G.shifts) {
+      const moved = dz ? { ...item, z: round(item.z + dz) } : item;
+      if (dz && moved.z2 !== undefined) moved.z2 = round(item.z2 + dz);
+      if (ok(kind, moved)) return moved;
+    }
+    return item;
+  };
+}
+
 // ---- stage: breakable scenery
-function buildScenery(map, S, rng, wildEnd) {
-  const main = map.paths[0], put = (type, x, z) => map.scenery.push({ type, x: round(x), z: round(z) });
+function buildScenery(map, S, rng, wildEnd, fit) {
+  const main = map.paths[0], put = (type, x, z) => map.scenery.push(fit('scenery', { type, x: round(x), z: round(z) }));
   const c0 = pathAt(main, map.start.z + 26);
   put('trailmap', c0.x - c0.w + 3.5, map.start.z + 26);
   // a direction post where each branch leaves
@@ -272,14 +310,14 @@ function buildScenery(map, S, rng, wildEnd) {
 }
 
 // ---- stage: placeholder objects from the catalogue
-function buildObjects(map, S, rng, wildEnd) {
+function buildObjects(map, S, rng, wildEnd, fit) {
   const fence = map.fenceOffset ?? 10;
   const edges = (z) => {
     let left = Infinity, right = -Infinity;
     for (const p of map.paths) { const c = pathAt(p, z); if (c) { left = Math.min(left, c.x - c.w); right = Math.max(right, c.x + c.w); } }
     return { left, right };
   };
-  const put = (type, x, z, more = {}) => map.objects.push({ type, x: round(x), z: round(z), ...more });
+  const put = (type, x, z, more = {}) => map.objects.push(fit('object', { type, x: round(x), z: round(z), ...more }));
   const liftSide = rng.sign();
   const outside = (z, side, dist) => { const e = edges(z); return side < 0 ? e.left - dist : e.right + dist; };
 

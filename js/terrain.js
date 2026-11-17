@@ -9,6 +9,7 @@
 //   corridorOut(x, z)      metres outside the nearest piste edge (<= 0 means on piste)
 
 import { T } from './tuning.js';
+import { objectFootprint, pointGap } from './data/objects.js';
 
 const BIN = 50;
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -96,6 +97,11 @@ export function createTerrain(level) {
   }
   // The red safety fence runs down both sides of the mountain, this far outside the outermost pistes.
   const fenceOffset = level.fenceOffset ?? 10;
+  // Where the fence is at this z: { left, right } x, or null beyond the pistes.
+  function fenceAt(z) {
+    const e = outerEdges(z);
+    return e && { left: e.left - fenceOffset, right: e.right + fenceOffset };
+  }
   // Id of the piste the rider is on (the nearest one) at this z.
   function nearestPathId(x, z) {
     let best = 1e9, id = null;
@@ -166,19 +172,27 @@ export function createTerrain(level) {
   for (const p of level.paths) for (const n of p.nodes) { minX = Math.min(minX, n.x - n.w); maxX = Math.max(maxX, n.x + n.w); }
   const bounds = { minX: minX - 70, maxX: maxX + 70, minZ: -40, maxZ: level.length + 60 };
   const CELL = 6.5;
+  // placed objects (huts, pylons...) get a clearing: no generated tree within T.forest.objectClear of them
+  const clearings = (level.objects || []).map((o) => {
+    const fp = objectFootprint(o), pts = fp.circle ? [fp.circle] : fp.poly, pad = (fp.circle?.r || 0) + 3;
+    return { fp, minX: Math.min(...pts.map((p) => p.x)) - pad, maxX: Math.max(...pts.map((p) => p.x)) + pad, minZ: Math.min(...pts.map((p) => p.z)) - pad, maxZ: Math.max(...pts.map((p) => p.z)) + pad };
+  });
+  const inClearing = (x, z, r) => clearings.some((c) => x > c.minX && x < c.maxX && z > c.minZ && z < c.maxZ && pointGap(c.fp, x, z) - r < T.forest.objectClear);
   for (let gz = bounds.minZ; gz < bounds.maxZ; gz += CELL) {
     for (let gx = bounds.minX; gx < bounds.maxX; gx += CELL) {
       const x = gx + hash2(gx, gz, seed) * CELL, z = gz + hash2(gz, gx, seed + 1) * CELL;
       const out = corridorOut(x, z);
       if (out < 2.5) continue;
       const e = outerEdges(z);
+      let inside = Infinity;                                     // metres inside the fence (< 0 is beyond it)
       if (e) {
-        const inside = Math.min(x - (e.left - fenceOffset), (e.right + fenceOffset) - x);   // < 0 is beyond the fence
+        inside = Math.min(x - (e.left - fenceOffset), (e.right + fenceOffset) - x);   // < 0 is beyond the fence
         if (Math.abs(inside) < 1.6) continue;                    // keep the fence line itself clear
         if (inside > 0 && (x < e.left || x > e.right)) {
           // the strip between the piste and the fence: a few small trees only, as hazards
           if (hash2(gx * 1.9, gz * 1.1, seed + 5) > (level.fenceTreeDensity ?? 0.14)) continue;
           const s = 0.45 + hash2(gx, gz, seed + 3) * 0.3;
+          if (Math.abs(inside) - 0.5 * s < T.forest.fenceClear || inClearing(x, z, 0.5 * s)) continue;   // clear of the fence and of objects
           props.push({ type: 'pine', x, z, s, r: 0.5 * s, small: true });
           continue;
         }
@@ -186,6 +200,7 @@ export function createTerrain(level) {
       if (out < 4.5) continue;
       if (hash2(gx * 1.7, gz * 1.3, seed + 2) > 0.42 + smooth(out, 4.5, 14) * 0.3) continue;
       const s = 0.8 + hash2(gx, gz, seed + 3) * 0.9;
+      if (Math.abs(inside) - 0.5 * s < T.forest.fenceClear || inClearing(x, z, 0.5 * s)) continue;     // clear of the fence and of objects
       props.push({ type: hash2(gx, gz, seed + 4) > 0.78 ? 'blob' : 'pine', x, z, s, r: 0.5 * s });
     }
   }
@@ -209,10 +224,10 @@ export function createTerrain(level) {
   // ---- side fences: one line of points down each side of the mountain
   const fences = [{ side: -1, points: [] }, { side: 1, points: [] }];
   for (let z = bounds.minZ; z <= bounds.maxZ; z += 5) {
-    const e = outerEdges(z);
-    if (!e) continue;
-    fences[0].points.push({ x: e.left - fenceOffset, z });
-    fences[1].points.push({ x: e.right + fenceOffset, z });
+    const f = fenceAt(z);
+    if (!f) continue;
+    fences[0].points.push({ x: f.left, z });
+    fences[1].points.push({ x: f.right, z });
   }
 
   // ---- slalom gates: generated from the pistes (generateGates above), unless
@@ -223,7 +238,7 @@ export function createTerrain(level) {
 
   return {
     level, bounds, gates, props, fences, scenery, binSize: BIN,
-    heightAt, naturalHeightAt, corridorOut, nearestCentre, nearestPathId, gradeAt, mainAt, propsBetween, sceneryNear,
+    heightAt, naturalHeightAt, corridorOut, fenceAt, nearestCentre, nearestPathId, gradeAt, mainAt, propsBetween, sceneryNear,
     kickers: level.features.filter((f) => f.type === 'kicker'),
     edgeWidth: () => T.ride.edgeWidth,
   };

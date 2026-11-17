@@ -18,7 +18,7 @@ import { T } from '../../js/tuning.js';
 import { SCENERY_TYPES } from '../../js/data/scenery.js';
 import { OBJECT_TYPES, objectCircles } from './catalogue.js';
 import { PROFILES } from './predict.js';
-import { pathAt, jumpZone, featureSpan, isJump, takeoffZ, corridorOut, sameLine, featureName } from './geometry.js';
+import { pathAt, jumpZone, featureSpan, isJump, takeoffZ, corridorOut, sameLine, featureName, footprint, footprintBounds, footprintGap, fenceGap } from './geometry.js';
 
 export const RULES = [
   { id: 'course-ends', severity: 'error', name: 'The main piste covers the whole course',
@@ -37,14 +37,18 @@ export const RULES = [
     about: 'No breakable scenery in the lane of a jump for `distance` metres after it.' },
   { id: 'object-off-landing', severity: 'warning', name: 'Objects kept off landings', distance: 50,
     about: 'No placed object in the lane of a jump for `distance` metres after it.' },
-  { id: 'gate-near-jump', severity: 'warning', name: 'No gate close to a jump', before: 30, after: 40, side: 8,
-    about: 'No gate within `before` metres before a jump or `after` metres after it, in its lane widened by `side` metres each side.' },
+  { id: 'gate-near-jump', severity: 'warning', name: 'No gate close to a jump', before: 30, margin: 10, speed: 'normal', side: 8,
+    about: 'No gate within `before` metres before a jump, on it, or after it until `margin` metres past where she lands at `speed` speed (the real physics; from the take-off when she stays on the snow), in its lane widened by `side` metres each side. Owner, 2026-11-17.' },
   { id: 'gate-on-piste', severity: 'error', name: 'Every gate is on its piste',
     about: 'A gate must lie between the edges of the piste it belongs to.' },
   { id: 'feature-on-piste', severity: 'warning', name: 'Every feature is on a piste',
     about: 'The take-off point of a feature must be on a piste.' },
   { id: 'object-clear-of-piste', severity: 'warning', name: 'Buildings stand clear of the pistes', clearance: 2,
     about: 'Buildings (catalogue types marked offPiste) keep `clearance` metres from every piste edge.' },
+  { id: 'clear-of-fence', severity: 'warning', name: 'Nothing touches the red fence', clearance: 1,
+    about: 'Trees (generated and hand-placed), scenery, objects and features keep their whole footprint `clearance` metres from the red side fence, on either side of it. Owner, 2026-11-17.' },
+  { id: 'no-overlap', severity: 'warning', name: 'Nothing overlaps anything else', clearance: 1,
+    about: 'Features, gates, scenery, objects and hand-placed trees keep their footprints `clearance` metres apart, edge to edge, from each other and from the generated forest. A gate against a jump is left to gate-near-jump. Owner, 2026-11-17.' },
   { id: 'landing-predicted', severity: 'warning', name: 'Predicted landing is clear', back: 2, settle: 12, minAir: 0.3,
     about: 'Where the real physics says she lands (each speed), the lane from `back` metres before touchdown to `settle` metres after must hold no tree, gate, feature, scenery or object. Airs shorter than `minAir` seconds are ignored.' },
   { id: 'landing-predicted-piste', severity: 'warning', name: 'Predicted landing is on a piste',
@@ -121,6 +125,7 @@ export function checkMap(map, terrain, jumps) {
   const gateNear = rule('gate-near-jump'), clear = rule('landing-clear'), straight = rule('landing-straight');
   const scn = rule('scenery-off-landing'), obj = rule('object-off-landing'), spacing = rule('jump-spacing');
   const handPlaced = new Map((map.props || []).map((p, i) => [`${p.x},${p.z},${p.type}`, i]));
+  const jumpOf = new Map((jumps || []).map((j) => [j.index, j]));
   features.forEach((f, fi) => {
     if (!isJump(f)) return;
     const [z0, z1] = jumpZone(f), half = f.width / 2, name = featureName(f);
@@ -171,13 +176,15 @@ export function checkMap(map, terrain, jumps) {
       if (hit) warn('object-off-landing', hit.x, hit.z, `${OBJECT_TYPES[o.type].name} stands in the landing of the ${name}, ${m(hit.z - z1)} after it.`, [{ kind: 'object', index: oi }, me]);
     });
 
-    // gate-near-jump
+    // gate-near-jump: after a jump, clear until `margin` past the landing at `speed`
+    const fl = jumpOf.get(fi)?.flights[gateNear.speed];
+    const lands = Math.max(z1, fl?.air ? fl.landing.z : z1), clearTo = lands + gateNear.margin;
     map.gates.forEach((g, gi) => {
       if (!inLane(g.x, gateNear.side)) return;
       const items = [{ kind: 'gate', index: gi }, me];
       if (g.z > z0 - gateNear.before && g.z < z0) warn('gate-near-jump', g.x, g.z, `A gate is ${m(z0 - g.z)} before the ${name}; the rule is ${gateNear.before} m.`, items);
       else if (g.z >= z0 && g.z <= z1) warn('gate-near-jump', g.x, g.z, `A gate stands on the ${name}.`, items);
-      else if (g.z > z1 && g.z < z1 + gateNear.after) warn('gate-near-jump', g.x, g.z, `A gate is ${m(g.z - z1)} after the ${name}; the rule is ${gateNear.after} m.`, items);
+      else if (g.z > z1 && g.z < clearTo) warn('gate-near-jump', g.x, g.z, `A gate is ${m(g.z - z1)} after the ${name}; at ${gateNear.speed} speed she lands ${m(lands - z1)} after it, and gates should start ${gateNear.margin} m past that.`, items);
     });
   });
 
@@ -203,6 +210,64 @@ export function checkMap(map, terrain, jumps) {
       const gap = corridorOut(map, o.x, o.z) - t.r;
       if (gap < R.clearance) warn('object-clear-of-piste', o.x, o.z, `${t.name} at ${m(o.z)} is ${gap < 0 ? 'on' : `only ${gap.toFixed(1)} m from`} a piste; buildings should stand ${R.clearance} m clear.`, [{ kind: 'object', index: oi }]);
     });
+  }
+
+  // ---- clear-of-fence and no-overlap: footprints, edge to edge
+  {
+    const F = rule('clear-of-fence'), O = rule('no-overlap');
+    const own = new Set(terrain.level.props || []);
+    const things = [];
+    const NAMES = { gate: (g) => `the gate at ${m(g.z)}`, scenery: (s) => `the ${(SCENERY_TYPES[s.type]?.name || s.type).toLowerCase()} at ${m(s.z)}`,
+      object: (o) => `the ${(OBJECT_TYPES[o.type]?.name || o.type).toLowerCase()} at ${m(o.z)}`, prop: (p) => `the hand-placed ${p.type} at ${m(p.z)}`, feature: (f) => `the ${featureName(f)}` };
+    for (const [kind, key] of [['feature', 'features'], ['gate', 'gates'], ['scenery', 'scenery'], ['object', 'objects'], ['prop', 'props']]) {
+      (map[key] || []).forEach((item, index) => {
+        const fp = footprint(kind, item);
+        things.push({ kind, index, item, fp, b: footprintBounds(fp), name: NAMES[kind](item) });
+      });
+    }
+    const centre = (t) => ({ x: (t.b.minX + t.b.maxX) / 2, z: (t.b.minZ + t.b.maxZ) / 2 });
+
+    // clear-of-fence: everything placed, except gates (they stand on pistes)...
+    for (const t of things) {
+      if (t.kind === 'gate') continue;
+      const gap = fenceGap(t.fp, terrain.fenceAt);
+      if (gap < F.clearance) {
+        const c = centre(t);
+        warn('clear-of-fence', c.x, c.z, `${t.name[0].toUpperCase()}${t.name.slice(1)} ${gap <= 0 ? 'crosses' : `is only ${gap.toFixed(1)} m from`} the red fence; keep ${F.clearance} m clear.`, [{ kind: t.kind, index: t.index }]);
+      }
+    }
+    // ...and the generated forest, as one warning
+    const close = terrain.props.filter((p) => !own.has(p) && fenceGap(footprint('prop', p), terrain.fenceAt) < F.clearance);
+    if (close.length) {
+      const first = close.reduce((a, b) => (a.z < b.z ? a : b));
+      warn('clear-of-fence', first.x, first.z, `${close.length === 1 ? 'A generated tree stands' : `${close.length} generated trees stand`} within ${F.clearance} m of the red fence, the first at ${m(first.z)}.`);
+    }
+
+    // no-overlap: each pair of placed things once (sorted down the slope)...
+    const sorted = things.slice().sort((a, b) => a.b.minZ - b.b.minZ);
+    for (let i = 0; i < sorted.length; i++) {
+      const a = sorted[i];
+      for (let j = i + 1; j < sorted.length && sorted[j].b.minZ < a.b.maxZ + O.clearance; j++) {
+        const b = sorted[j];
+        if (b.b.minX > a.b.maxX + O.clearance || a.b.minX > b.b.maxX + O.clearance) continue;
+        if ((a.kind === 'gate' && b.kind === 'feature' && isJump(b.item)) || (b.kind === 'gate' && a.kind === 'feature' && isJump(a.item))) continue;
+        const gap = footprintGap(a.fp, b.fp);
+        if (gap >= O.clearance) continue;
+        const ca = centre(a), cb = centre(b);
+        warn('no-overlap', (ca.x + cb.x) / 2, (ca.z + cb.z) / 2,
+          `${a.name[0].toUpperCase()}${a.name.slice(1)} and ${b.name} ${gap <= 0 ? 'overlap' : `are only ${gap.toFixed(1)} m apart`}; keep ${O.clearance} m between things.`,
+          [{ kind: a.kind, index: a.index }, { kind: b.kind, index: b.index }]);
+      }
+    }
+    // ...and each placed thing against the generated forest
+    for (const t of things) {
+      const near = terrain.propsBetween(t.b.minZ - O.clearance - 2, t.b.maxZ + O.clearance + 2)
+        .filter((p) => !own.has(p) && p.x > t.b.minX - O.clearance - 2 && p.x < t.b.maxX + O.clearance + 2 && footprintGap(t.fp, footprint('prop', p)) < O.clearance);
+      if (near.length) {
+        const c = centre(t);
+        warn('no-overlap', c.x, c.z, `${near.length === 1 ? 'A generated tree stands' : `${near.length} generated trees stand`} within ${O.clearance} m of ${t.name}.`, [{ kind: t.kind, index: t.index }]);
+      }
+    }
   }
 
   // ---- predicted landings (the real physics, at each speed)

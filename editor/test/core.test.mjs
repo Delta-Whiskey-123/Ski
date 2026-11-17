@@ -17,6 +17,7 @@ import { levelToMap, mapToLevel, levelModuleSource } from '../core/convert.js';
 import { analyse } from '../core/analyse.js';
 import { predictJumps, PROFILES, entrySpeed } from '../core/predict.js';
 import { RULES, rule } from '../core/rules.js';
+import { footprint, footprintGap, fenceGap } from '../core/geometry.js';
 import { generateMap, normaliseSettings } from '../core/generate.js';
 import { OBJECT_TYPES, objectCircles } from '../core/catalogue.js';
 import { createRng } from '../core/rng.js';
@@ -201,14 +202,19 @@ test('jump-spacing: two jumps on one line closer than the rule', () => {
   assert.ok(!rulesHit(beside).includes('jump-spacing'), 'side by side is not the same line');
 });
 
-test('gate-near-jump: before, on and after', () => {
+test('gate-near-jump: before, on, and after until past the landing at the rule\'s speed', () => {
   const R = rule('gate-near-jump');
-  for (const z of [300 - R.before + 5, 303, 306 + R.after - 5]) {
+  const probe = plain(); probe.features.push(kicker(300));
+  const lands = analyse(probe).jumps[0].flights[R.speed].landing.z, clearTo = lands + R.margin;
+  assert.ok(lands > 306, 'the test kicker gets air');
+  for (const z of [300 - R.before + 5, 303, 306 + 5, clearTo - 2]) {
     const map = plain(); map.features.push(kicker(300)); map.gates.push({ x: 2, z, red: true, path: 'main' });
     assert.ok(rulesHit(map).includes('gate-near-jump'), `gate at ${z}`);
   }
-  const map = plain(); map.features.push(kicker(300)); map.gates.push({ x: 2, z: 300 - R.before - 5, red: true, path: 'main' });
-  assert.ok(!rulesHit(map).includes('gate-near-jump'));
+  for (const z of [300 - R.before - 5, clearTo + 2]) {
+    const map = plain(); map.features.push(kicker(300)); map.gates.push({ x: 2, z, red: true, path: 'main' });
+    assert.ok(!rulesHit(map).includes('gate-near-jump'), `gate at ${z}`);
+  }
 });
 
 test('landing rules: feature, scenery, object and a curving piste', () => {
@@ -227,7 +233,8 @@ test('landing rules: feature, scenery, object and a curving piste', () => {
 test('landing-predicted: the real flight comes down on a gate', () => {
   const map = plain(); map.features.push(kicker(300));
   const land = analyse(map).jumps[0].flights.adrenaline.landing.z;
-  assert.ok(land > 306 + rule('gate-near-jump').after, 'far enough that only the prediction can catch it');
+  const R = rule('gate-near-jump'), normal = analyse(map).jumps[0].flights[R.speed].landing.z;
+  assert.ok(land > normal + R.margin + 5, 'far enough that only the prediction can catch it');
   map.gates.push({ x: 0, z: Math.round(land) + 3, red: true, path: 'main' });
   const w = analyse(map).warnings;
   assert.deepEqual(w.map((x) => x.rule), ['landing-predicted']);
@@ -256,6 +263,71 @@ test('errors: gate off its piste, start off the piste, short main piste, hut on 
   assert.ok(rulesHit(d).includes('object-clear-of-piste'));
   const e = plain(); e.features.push(kicker(300, 40));
   assert.ok(rulesHit(e).includes('feature-on-piste'));
+});
+
+test('clear-of-fence: placed things keep their footprint clear of the red fence', () => {
+  const R = rule('clear-of-fence'), fence = 16 + 10;                       // plain(): half-width 16, default fence offset 10
+  for (const [what, add] of [
+    ['rock inside', (m) => m.objects.push({ type: 'rock', x: fence - 1.2 - R.clearance + 0.3, z: 300 })],
+    ['rock across', (m) => m.objects.push({ type: 'rock', x: fence, z: 300 })],
+    ['hut beyond', (m) => m.objects.push({ type: 'hut', x: -(fence + 3 + R.clearance - 0.3), z: 300, rot: 0 })],
+    ['snowman', (m) => m.scenery.push({ type: 'snowman-big', x: fence - 2.3 - 0.5, z: 300 })],
+    ['tree', (m) => m.props.push({ type: 'pine', x: fence + 1, z: 300, s: 1, r: 0.5 })],
+    ['fence run', (m) => m.objects.push({ type: 'fence', x: fence - 0.5, z: 280, x2: fence - 0.5, z2: 320 })],
+  ]) {
+    const map = plain(); add(map);
+    assert.ok(rulesHit(map).includes('clear-of-fence'), what);
+  }
+  const ok = plain();
+  ok.objects.push({ type: 'rock', x: fence - 1.2 - R.clearance - 0.3, z: 300 }, { type: 'hut', x: fence + 3 + R.clearance + 0.3, z: 400, rot: 0 });
+  assert.ok(!rulesHit(ok).includes('clear-of-fence'));
+});
+
+test('the game\'s forest keeps trees clear of the fence and of placed objects', () => {
+  const F = rule('clear-of-fence').clearance, O = rule('no-overlap').clearance;
+  const maps = [levelToMap(level1), generateMap({ seed: 4242, length: 2600, branches: 3 }).map];
+  for (const map of maps) {
+    const a = analyse(map);
+    assert.ok(!a.warnings.some((w) => w.rule === 'clear-of-fence'), `${map.id}: no tree near the fence`);
+    assert.ok(!a.warnings.some((w) => w.rule === 'no-overlap' && /generated tree/.test(w.message)), `${map.id}: no tree on an object`);
+    for (const p of a.terrain.props) assert.ok(fenceGap(footprint('prop', p), a.terrain.fenceAt) >= F);
+    for (const o of map.objects) for (const p of a.terrain.props) assert.ok(footprintGap(footprint('object', o), footprint('prop', p)) >= O);
+  }
+  // a hut in the deep forest gets its clearing
+  const map = plain(); map.objects.push({ type: 'lodge', x: 60, z: 400, rot: 0 });
+  assert.ok(!rulesHit(map).includes('no-overlap'));
+});
+
+test('no-overlap: placed things keep 1 m apart, edge to edge', () => {
+  const R = rule('no-overlap');
+  const cases = [
+    ['two snowmen', (m) => m.scenery.push({ type: 'snowman-big', x: 0, z: 300 }, { type: 'snowman-small', x: 2.3 + 0.8 + R.clearance - 0.3, z: 300 })],
+    ['snowman on a roller', (m) => { m.features.push({ type: 'roller', x: 0, z: 300, width: 20, length: 18, height: 1.2 }); m.scenery.push({ type: 'snowman-small', x: 5, z: 305 }); }],
+    ['sign on a gate', (m) => { m.gates.push({ x: 0, z: 200, red: true, path: 'main' }); m.scenery.push({ type: 'caution', x: 2, z: 200.5 }); }],
+    ['rock by a hand-placed tree', (m) => { m.objects.push({ type: 'rock', x: 10, z: 200 }); m.props.push({ type: 'pine', x: 12, z: 200, s: 1, r: 0.5 }); }],
+    ['hand-placed tree in the forest', (m) => m.props.push({ type: 'pine', x: 0, z: 0, s: 1, r: 0.5 })],
+  ];
+  for (const [what, add] of cases) {
+    const map = plain(); add(map);
+    if (what === 'hand-placed tree in the forest') {
+      const a = analyse(map), t = a.terrain.props.find((p) => !p.small && p.x > 30 && p.x < 60);
+      map.props = [{ type: 'pine', x: t.x + 0.5, z: t.z, s: 1, r: 0.5 }];
+    }
+    assert.ok(rulesHit(map).includes('no-overlap'), what);
+  }
+  const ok = plain();
+  ok.scenery.push({ type: 'snowman-big', x: 0, z: 300 }, { type: 'snowman-small', x: 2.3 + 0.8 + R.clearance + 0.3, z: 300 });
+  ok.gates.push({ x: 0, z: 200, red: true, path: 'main' }); ok.scenery.push({ type: 'caution', x: 0, z: 202.5 });
+  assert.ok(!rulesHit(ok).includes('no-overlap'));
+  const w = analyse((() => { const m = plain(); cases[0][1](m); return m; })()).warnings.find((x) => x.rule === 'no-overlap');
+  assert.deepEqual(w.items.map((i) => i.kind), ['scenery', 'scenery']);
+  assert.equal(w.severity, 'warning');
+});
+
+test('the object table lives in the game\'s data; the editor\'s catalogue is the same table', async () => {
+  const game = await import('../../js/data/objects.js');
+  assert.equal(OBJECT_TYPES, game.OBJECT_TYPES);
+  assert.equal(objectCircles, game.objectCircles);
 });
 
 // ---------------------------------------------------------------- catalogue and rng
@@ -290,7 +362,9 @@ test('generated courses are valid maps and pass every rule', () => {
   const cases = [
     { seed: 1 }, { seed: 2, difficulty: 5, jumpDensity: 1, branches: 6 }, { seed: 3, length: 900, branches: 1 },
     { seed: 4, difficulty: 1, jumpDensity: 0.2, branches: 0 }, { seed: 5, length: 4000, branches: 4, jumpDensity: 0.8 },
-    { seed: 6, length: 600, branches: 2 },
+    { seed: 6, length: 600, branches: 2 }, { seed: 7, difficulty: 2, length: 1500, branches: 3 },
+    { seed: 8, difficulty: 4, length: 3000, branches: 5, jumpDensity: 0.7 }, { seed: 10, difficulty: 5, length: 4000, branches: 0 },
+    { seed: 12, difficulty: 1, length: 2000, branches: 6, jumpDensity: 1 },
   ];
   for (const c of cases) {
     const { map, report } = generateMap(c);

@@ -93,6 +93,11 @@ export const DEFAULTS = {
     slowBigSnowman: 0.25, // ...a big snowman
     riderRadius: 0.45,    // how close her centre must get to a piece's outline to hit it
   },
+  forest: {
+    // The generated forest (js/terrain.js). Read when a level is built.
+    fenceClear: 1,        // metres of clear snow between a generated tree's edge and the red fence (owner, 2026-11-17)
+    objectClear: 1,       // ...and between a generated tree's edge and a placed object (level.objects)
+  },
   stats: {
     // A rider stat of 1..10 scales its number between these two multipliers.
     low: 0.8,
