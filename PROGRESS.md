@@ -42,6 +42,12 @@
   - The simulation, `tuning.js` and scoring are untouched. The constants at the top of `rider-model.js` are visual only.
   - **Verified (Chrome, desktop):** deepest point of the board below the snow, before and after, measured along each feature: big kicker 0.94 m to 0.01 m, middle kicker 0.71 to 0.02, small kicker 0.47 to 0.01, roller 0.29 to 0, 12 m ledge lip 0.27 to 0, also at an angle and off piste (all 0.03 m or less). A real pass over the big kicker with `summit.tick()`: tilt rises to 32° at the lip, then fades to under 2° in about 0.2 s of air. No console errors.
   - **Not checked:** how it looks in motion (the preview pane does not animate continuously); phones.
+- **Ice channels (owner's request, outside the milestone list).** Strips of ice that raise top speed by 20%, as the fast way round a jump in Race. Three on level 1, one beside each kicker (`ice` in `js/data/levels/level1.js`): 6.4 m wide beside the 1 m and 2 m kickers, 6.8 m beside the 4 m one, 56 to 66 m long.
+  - Rule (`stepGround`): on ice the downhill pull and the boost push are multiplied by `ice.speedUp`², which makes top speed exactly `ice.speedUp` times higher. Forgiveness: it counts 0.8 m outside the drawn edge (`ice.margin`) and for 0.5 s after leaving (`ice.linger`); it fades in and out over 0.25 s (`ice.fade`). Steering, braking and jumping are unchanged on ice.
+  - Drawn by `js/render/ice.js`: a ribbon per channel with a texture painted in code (frost rim, darker inner line, scratches). No carved track or powder on ice. The frost rim sits outside the edge that counts.
+  - **Verified (Chrome, desktop):** top speed 23.7 to 28.5 m/s without boost and 33.5 to 40.3 with (both x1.20). A straight pass from z 585 to 700 through the big kicker's channel: 4.68 s without the ice effect, 4.18 s with (0.5 s saved); with boost 3.38 s to 3.00 s. Channels draw beside the kickers; no console errors.
+  - **Not done:** no ice sound (the board sound is the same as on snow); medal times not re-tuned for the faster line; gates are not placed with the ice in mind. Owner plans cosmetic and width changes later.
+  - **Not checked:** how it feels in motion; phones.
 
 ## Next
 

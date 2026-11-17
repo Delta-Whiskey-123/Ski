@@ -7,6 +7,7 @@ import * as THREE from '../../vendor/three.module.min.js';
 import { T } from '../tuning.js';
 import { createTerrainMesh } from './terrain-mesh.js';
 import { createProps } from './props.js';
+import { createIce } from './ice.js';
 import { createRiderModel } from './rider-model.js';
 import { createEffects } from './effects.js';
 import { createScenery } from './scenery.js';
@@ -43,6 +44,7 @@ export function createView(canvas, terrain, rider, quality = 'high') {
   scene.add(sun, sun.target);
 
   const ground = createTerrainMesh(scene, terrain, { res: Q.terrainRes });
+  createIce(scene, terrain);
   const props = createProps(scene, terrain);
   const effects = createEffects(scene, terrain);
   const scenery = createScenery(scene, terrain);

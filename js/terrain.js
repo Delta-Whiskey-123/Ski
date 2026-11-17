@@ -7,6 +7,7 @@
 //   heightAt(x, z)         everything the rider stands on
 //   naturalHeightAt(x, z)  the snow surface only (what the terrain mesh draws)
 //   corridorOut(x, z)      metres outside the nearest piste edge (<= 0 means on piste)
+//   iceOut(x, z)           metres outside the nearest ice channel edge (<= 0 means on ice)
 
 import { T } from './tuning.js';
 
@@ -135,6 +136,31 @@ export function createTerrain(level) {
     return g;
   }
 
+  // ---- ice channels: strips of faster surface. Each is a centre line with a
+  // half-width, like a piste, and narrows to a rounded tip at both ends.
+  const ICE_TIP = 5;    // metres over which each end rounds off
+  const ice = (level.ice || []).map((c, i) => {
+    const n = c.nodes, z0 = n[0].z, z1 = n[n.length - 1].z;
+    const at = (z) => {
+      if (z < z0 || z > z1) return null;
+      let k = 0; while (k < n.length - 2 && z > n[k + 1].z) k++;
+      const a = n[k], b = n[k + 1], t = smooth(z, a.z, b.z);
+      const aw = a.w ?? c.w, bw = b.w ?? c.w;
+      const tip = Math.sqrt(clamp01(Math.min(z - z0, z1 - z) / ICE_TIP));
+      return { x: a.x + (b.x - a.x) * t, w: (aw + (bw - aw) * t) * tip };
+    };
+    return { id: c.id ?? `ice${i}`, z0, z1, at };
+  });
+  // Metres outside the nearest ice edge (<= 0 means on ice; very large where there is none).
+  function iceOut(x, z) {
+    let best = 1e9;
+    for (const c of ice) {
+      const p = c.at(z);
+      if (p) best = Math.min(best, Math.abs(x - p.x) - p.w);
+    }
+    return best;
+  }
+
   // ---- forest: generated once, the same every run
   const props = [];
   let minX = 1e9, maxX = -1e9;
@@ -211,8 +237,8 @@ export function createTerrain(level) {
   gates.forEach((g, n) => { g.index = n; });
 
   return {
-    level, bounds, gates, props, fences, scenery, binSize: BIN,
-    heightAt, naturalHeightAt, kickerAt, corridorOut, nearestCentre, nearestPathId, gradeAt, mainAt, propsBetween, sceneryNear,
+    level, bounds, gates, props, fences, scenery, ice, binSize: BIN,
+    iceOut, heightAt, naturalHeightAt, kickerAt, corridorOut, nearestCentre, nearestPathId, gradeAt, mainAt, propsBetween, sceneryNear,
     kickers: level.features.filter((f) => f.type === 'kicker'),
     edgeWidth: () => T.ride.edgeWidth,
   };

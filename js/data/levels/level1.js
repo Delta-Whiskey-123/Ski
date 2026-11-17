@@ -45,6 +45,16 @@ export default {
     { type: 'ledge', x: 0, z: 806, width: 24, drop: 12, approach: 70, run: 3, lip: 0.8 },
   ],
 
+  // Ice channels: strips of faster surface (top speed x `ice.speedUp` in tuning.js).
+  // Each is a centre line (top to bottom, z increasing) with a half-width `w` in
+  // metres; a node may carry its own `w`. Both ends round off by themselves.
+  // Here: one beside each kicker, as the fast way round it in Race.
+  ice: [
+    { id: 'ice-small', w: 3.2, nodes: [{ z: 122, x: -1 }, { z: 150, x: -3.5 }, { z: 182, x: -4.5 }] },      // right of the 1 m kicker
+    { id: 'ice-middle', w: 3.2, nodes: [{ z: 368, x: 3.5 }, { z: 396, x: 1 }, { z: 424, x: -0.5 }] },// right of the 2 m kicker
+    { id: 'ice-big', w: 3.4, nodes: [{ z: 590, x: -7 }, { z: 620, x: -9.5 }, { z: 656, x: -8 }] },          // left of the 4 m kicker
+  ],
+
   // Hand-placed obstacles (the forest is generated around the pistes).
   props: [],
 

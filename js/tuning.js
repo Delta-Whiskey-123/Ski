@@ -17,6 +17,13 @@ export const DEFAULTS = {
     edgePush: 6,          // how hard the far edge of the deep snow pushes her back (per metre)
     edgeWidth: 9,         // metres of deep snow before the hard edge
   },
+  ice: {
+    // Ice channels (a level's `ice` list): a faster surface beside some jumps.
+    speedUp: 1.2,         // top speed on ice as a multiple of normal (1.2 = 20% faster)
+    margin: 0.8,          // metres outside the drawn edge that still count as ice (forgiveness)
+    linger: 0.5,          // seconds the speed-up keeps going after she leaves the ice
+    fade: 0.25,           // seconds for the speed-up to come in, and to die away
+  },
   jump: {
     chargeTime: 0.45,     // seconds of holding jump for a full-power pop
     popMin: 4.5,          // upward speed from a tap

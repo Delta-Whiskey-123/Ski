@@ -22,6 +22,8 @@ export function createRider(level) {
     airTime: 0, maxHeight: 0, takeoffY: 0,
     out: 0,                       // metres outside the piste (<= 0 on piste)
     boosting: false, braking: false, steer: 0,
+    onIce: false,                 // the board is on drawn ice right now (for drawing)
+    ice: 0, iceLeft: 0,           // how much of the ice speed-up applies (0..1), and seconds of it left after leaving
   };
 }
 
@@ -48,8 +50,18 @@ function stepGround(s, dt, inp, terrain, stats, mods, events) {
   s.out = terrain.corridorOut(s.x, s.z);
   const deep = s.out > 0 ? 1 + (R.deepSnowDrag - 1) * Math.min(1, s.out / 3) : 1;
   s.boosting = inp.boost && !inp.brake; s.braking = inp.brake;
-  let a = R.slopeAccel * terrain.gradeAt(s.z) * Math.cos(s.heading) - R.drag * deep * s.speed * s.speed / stats.speed;
-  if (s.boosting) a += R.boostAccel * stats.accel * mods.boost;
+
+  // ice: everything that pushes her forward is stronger, so her top speed is `speedUp` times higher.
+  // It counts a little outside the drawn edge and for a moment after she leaves.
+  const I = T.ice, iceOut = terrain.iceOut(s.x, s.z);
+  s.onIce = iceOut <= 0;
+  if (iceOut <= I.margin) s.iceLeft = I.linger; else s.iceLeft = Math.max(0, s.iceLeft - dt);
+  const iceWant = iceOut <= I.margin || s.iceLeft > 0 ? 1 : 0, iceStep = dt / Math.max(I.fade, dt);
+  s.ice += Math.max(-iceStep, Math.min(iceStep, iceWant - s.ice));
+  const slip = (1 + (I.speedUp - 1) * s.ice) ** 2;   // drag grows with speed squared, so push x k² gives top speed x k
+
+  let a = R.slopeAccel * terrain.gradeAt(s.z) * Math.cos(s.heading) * slip - R.drag * deep * s.speed * s.speed / stats.speed;
+  if (s.boosting) a += R.boostAccel * stats.accel * mods.boost * slip;
   if (s.braking) a -= R.brakeDecel;
   s.speed = Math.max(R.minSpeed, s.speed + a * dt);
 
@@ -76,7 +88,7 @@ function stepGround(s, dt, inp, terrain, stats, mods, events) {
   const vyG = (g - s.y) / dt;
   const fallsAway = (s.groundVy - vyG) / dt > T.air.gravity * T.jump.launchSharpness;
   if (pop > 0 || fallsAway) {
-    s.air = true;
+    s.air = true; s.onIce = false;
     s.vy = (s.groundVy > 0 ? s.groundVy * T.jump.launchScale * mods.jump : s.groundVy) + pop;
     s.vx = Math.sin(s.heading) * s.speed; s.vz = Math.cos(s.heading) * s.speed;
     s.y += s.vy * dt;

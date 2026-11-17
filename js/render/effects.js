@@ -41,7 +41,7 @@ export function createEffects(scene, terrain) {
   return {
     burst(s, n) { for (let i = 0; i < n; i++) puff(s, 1.6); },
     update(s, dt) {
-      if (!s.air) {
+      if (!s.air && !s.onIce) {     // ice takes no carved track and throws no powder
         const w = 0.3, c = Math.cos(s.heading), sn = Math.sin(s.heading);
         const p = { lx: s.x - c * w, lz: s.z + sn * w, rx: s.x + c * w, rz: s.z - sn * w };
         p.ly = terrain.heightAt(p.lx, p.lz) + 0.04; p.ry = terrain.heightAt(p.rx, p.rz) + 0.04;
