@@ -20,6 +20,7 @@ import { settings } from './settings.js';
 import { createView } from './render/view.js';
 import { createDebug } from './debug.js';
 import { createUI, formatBest } from './ui.js';
+import { createAudio } from './audio.js';
 
 const STEP = 1 / 120;
 
@@ -35,6 +36,20 @@ const debug = createDebug(document.getElementById('debug'));
 const gates = createGateTracker(terrain);
 const meter = createMeter();
 const scenery = createSceneryTracker(terrain);
+// the adrenaline-ready pulse: CSS animation and sound share one beat length
+document.documentElement.style.setProperty('--adr-beat', `${T.meter.readyBeat}s`);
+
+// Sound. Nothing exists until the first tap or key press (browsers require a
+// gesture); from then on every sound is pre-built. audio.js only hears events
+// and state from here: game logic never calls it.
+const audio = createAudio();
+audio.setRider(rider);
+function applySound() { audio.setEnabled(settings.sound.on); audio.setVolume(settings.sound.volume); }
+function unlockAudio() { if (audio.unlock()) applySound(); }
+addEventListener('pointerdown', unlockAudio, { capture: true });
+addEventListener('keydown', unlockAudio, { capture: true });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) audio.resume(); });
+addEventListener('pageshow', () => audio.resume());
 
 const $ = (id) => document.getElementById(id);
 const el = {
@@ -44,9 +59,10 @@ const el = {
 };
 
 let phase = 'menu', resumeTo = 'riding';
-let mode = save.mode, state, run, countdown = 0, coast = 0;
+let mode = save.mode, state, run, countdown = 0, coast = 0, lastCount = 0;
 
 function resetRun() {
+  audio.resetRun(); audio.setPaused(false);
   state = createRider(level);
   state.y = terrain.heightAt(state.x, state.z);
   run = createRun(mode, level);
@@ -57,26 +73,30 @@ function resetRun() {
 function beginRun() {
   resetRun();
   ui.hide();
-  phase = 'countdown'; countdown = 3 * T.race.countdownStep;
+  phase = 'countdown'; countdown = 3 * T.race.countdownStep; lastCount = 0;
 }
 
 const ui = createUI({
-  onStart(choice) { mode = choice.mode; beginRun(); },
-  onResume() { ui.hide(); phase = resumeTo; },
+  onStart(choice) { mode = choice.mode; unlockAudio(); beginRun(); },
+  onResume() { ui.hide(); unpause(); },
   onRestart: beginRun,
   onQuit() { resetRun(); phase = 'menu'; ui.show('title'); },
+  onSound: applySound,
+  onClick: (kind) => audio.ui(kind),
 });
 resetRun();
 
 function pause() {
   if (phase !== 'riding' && phase !== 'countdown') return;
   resumeTo = phase; phase = 'paused'; ui.show('pause');
+  audio.setPaused(true);
 }
+function unpause() { phase = resumeTo; audio.setPaused(false); }
 addEventListener('keydown', (e) => {
   if (e.repeat) return;
   const action = settings.actionFor(e.code);
   if (action === 'pause') {
-    if (phase === 'paused') { if (ui.screen === 'pause') { ui.hide(); phase = resumeTo; } } else pause();
+    if (phase === 'paused') { if (ui.screen === 'pause') { ui.hide(); unpause(); } } else pause();
   }
   if (action === 'restart' && (phase === 'riding' || phase === 'finished')) beginRun();
 });
@@ -90,21 +110,24 @@ function show(node, text, cls = '') {
 const callout = (text) => show(el.callout, text);
 const flash = (text, kind) => show(el.flash, text, kind);
 
+// Sound comes first in every branch, then visuals.
 function handle(events) {
   for (const ev of events) {
+    if (ev.type === 'land') ev.value = trickValue(ev.trick);   // the trick blip is pitched from it
+    audio.event(ev);
     if (ev.type === 'takeoff') input.setAirborne(true);
     if (ev.type === 'land') {
       input.setAirborne(false);
       view.effects.burst(state, Math.min(30, 6 + ev.impact * 2));
       if (ev.trick.name) callout(ev.trick.name);
-      const value = trickValue(ev.trick);
+      const value = ev.value;
       run.onLand(ev.trick, value);
       const now = meter.onTrick(value);
       if (now === 'charged') flash('CHARGED', 'good');
       if (now === 'full') flash('ADRENALINE READY', 'good');
     }
     if (ev.type === 'break') {
-      // breakable scenery: a one-off speed cut, then the model breaks (sound first once audio exists)
+      // breakable scenery: a one-off speed cut, then the model breaks
       slowDown(state, ev.cut);
       view.scenery.breakItem(ev.item);
       view.effects.burst(state, 16);
@@ -113,6 +136,7 @@ function handle(events) {
       run.onGate(ev.passed);
       if (!ev.passed && mode === 'race') flash(`GATE MISSED  +${T.race.gatePenalty.toFixed(1)} s`, 'bad');
     }
+    // 'crash' ({ obstacle }) and 'respawn' arrive with milestone 1; audio.event above already plays them.
   }
 }
 
@@ -122,6 +146,7 @@ function finish() {
   let newBest = false;
   if (mode === 'race') newBest = save.record(level.id, 'race', res.total);
   finish.result = { res, info: { newBest, best: save.best(level.id, mode), targets: level.race } };
+  audio.event({ type: 'finish' });
   callout(mode === 'race' ? formatTime(res.total) : 'FINISH');
 }
 
@@ -145,11 +170,17 @@ function tick(dt, inp) {
 
   if (phase === 'countdown') {
     countdown -= dt;
-    if (countdown <= 0) { phase = 'riding'; run.start(); acc = 0; }
+    const n = Math.max(0, Math.ceil(countdown / T.race.countdownStep));
+    if (n !== lastCount && n > 0) audio.event({ type: 'count', n });
+    lastCount = n;
+    if (countdown <= 0) {
+      audio.event({ type: 'count', n: 0 }); audio.event({ type: 'start' });
+      phase = 'riding'; run.start(); acc = 0;
+    }
   }
 
   if (phase === 'riding' || phase === 'finished') {
-    if (phase === 'riding' && inp.adrenaline && meter.fire()) callout('ADRENALINE!');
+    if (phase === 'riding' && inp.adrenaline && meter.fire()) { audio.event({ type: 'adrenaline' }); callout('ADRENALINE!'); }
     acc += dt;
     while (acc >= STEP) {
       const riding = phase === 'riding';
@@ -165,9 +196,16 @@ function tick(dt, inp) {
     }
     if (phase === 'finished') {
       coast -= dt;
-      if (coast <= 0) { phase = 'menu'; ui.showResults(finish.result.res, finish.result.info); }
+      if (coast <= 0) {
+        phase = 'menu';
+        audio.event({ type: 'results', medal: finish.result.res.medal, newBest: finish.result.info.newBest });
+        ui.showResults(finish.result.res, finish.result.info);
+      }
     }
   }
+
+  // continuous sound follows the rider state (before drawing)
+  audio.update(dt, state, { phase, height: state.y - terrain.heightAt(state.x, state.z), meter: meter.state, adrenalineLeft: meter.adrenalineLeft });
 
   view.render(state, phase === 'paused' || phase === 'menu' ? 0 : dt);
 
@@ -196,6 +234,9 @@ requestAnimationFrame(frame);
 window.summit = {
   get state() { return state; }, get run() { return run; }, get phase() { return phase; },
   T, terrain, view, input, meter, gates, scenery, ui, save, step, STEP, beginRun, tick,
+  // audio.test(name) plays any sound (audio.names lists them), audio.peak() is the output
+  // level now, audio.heard counts the events that reached it.
+  audio,
   // Blank input for summit.tick(); override fields as needed, e.g. { ...summit.idle(), steer: 0.5 }.
   idle: () => ({ ...COAST_INPUT, brake: false, adrenaline: false, spinGesture: 0 }),
   startRun: beginRun,

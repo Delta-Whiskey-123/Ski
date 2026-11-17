@@ -1,5 +1,6 @@
-// Player settings saved on this device (localStorage, versioned). So far this
-// holds the keyboard bindings; sound, quality and units join it later.
+// Player settings saved on this device (localStorage, versioned). Holds the
+// keyboard bindings and sound (on/off, volume); quality and units join it later.
+// Version 2 added `sound`; a version 1 save keeps its keys and gets default sound.
 //
 // Rules for bindings: one key per action, no key used twice, and only keys
 // found on a standard keyboard without a number pad. Left and right Shift,
@@ -49,10 +50,16 @@ function validKeys(k) {
   return codes.every((c) => typeof c === 'string' && keyAllowed(c)) && new Set(codes).size === codes.length;
 }
 
-let data = { v: 1, keys: { ...DEFAULT_KEYS } };
+export const DEFAULT_SOUND = { on: true, volume: 0.8 };
+
+let data = { v: 2, keys: { ...DEFAULT_KEYS }, sound: { ...DEFAULT_SOUND } };
 try {
   const raw = JSON.parse(localStorage.getItem(KEY) || 'null');
-  if (raw && raw.v === 1 && validKeys(raw.keys)) data.keys = Object.fromEntries(ACTIONS.map((a) => [a.id, raw.keys[a.id]]));
+  if (raw && (raw.v === 1 || raw.v === 2) && validKeys(raw.keys)) data.keys = Object.fromEntries(ACTIONS.map((a) => [a.id, raw.keys[a.id]]));
+  if (raw && raw.v === 2 && raw.sound) {
+    if (typeof raw.sound.on === 'boolean') data.sound.on = raw.sound.on;
+    if (Number.isFinite(raw.sound.volume)) data.sound.volume = Math.max(0, Math.min(1, raw.sound.volume));
+  }
 } catch { /* storage unavailable or corrupt: keep defaults */ }
 
 function persist() { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch { /* storage unavailable */ } }
@@ -71,5 +78,12 @@ export const settings = {
     return { ok: true, swapped: other ? other.id : null };
   },
   resetKeys() { Object.assign(data.keys, DEFAULT_KEYS); persist(); },
+  // Sound: { on, volume 0..1 }. Live object; change it through setSound so it is saved.
+  sound: data.sound,
+  setSound(change) {
+    if (typeof change.on === 'boolean') data.sound.on = change.on;
+    if (Number.isFinite(change.volume)) data.sound.volume = Math.max(0, Math.min(1, change.volume));
+    persist();
+  },
   actionFor(code) { const a = ACTIONS.find((x) => data.keys[x.id] === code); return a ? a.id : null; },
 };

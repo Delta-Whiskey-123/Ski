@@ -58,7 +58,8 @@ function portrait(r) {
   </svg>`;
 }
 
-export function createUI({ onStart, onResume, onRestart, onQuit }) {
+// onSound(): the sound settings changed. onClick(kind): a menu button was pressed ('click' or 'back').
+export function createUI({ onStart, onResume, onRestart, onQuit, onSound = () => {}, onClick = () => {} }) {
   const menu = $('#menu');
   const choice = {
     mode: MODES.some((m) => m.id === save.mode) ? save.mode : MODES[0].id,
@@ -78,6 +79,7 @@ export function createUI({ onStart, onResume, onRestart, onQuit }) {
     if (name === 'level') renderLevels();
     if (name === 'rider') renderRider();
     if (name === 'controls-web') renderKeys();
+    if (name === 'settings') renderSound();
     listening = null;
     const first = $(`.screen[data-screen="${name}"] .selected, .screen[data-screen="${name}"] .cta`, menu);
     if (first) first.focus({ preventScroll: true });
@@ -110,6 +112,15 @@ export function createUI({ onStart, onResume, onRestart, onQuit }) {
       <div class="kit">Riding: ${kit.name}</div></div>`;
     $('#rider-list').innerHTML = [1, 2, 3].map(() => '<div class="card locked"><h3>?</h3><p>Coming soon</p></div>').join('');
   }
+
+  // ---- sound: on/off and volume, saved through settings.setSound
+  function renderSound() {
+    const on = settings.sound.on, b = $('#sound-on'), v = $('#sound-vol');
+    b.textContent = on ? 'Sound on' : 'Sound off'; b.setAttribute('aria-pressed', String(on));
+    v.value = settings.sound.volume; v.disabled = !on;
+  }
+  $('#sound-vol').addEventListener('input', (e) => { settings.setSound({ volume: +e.target.value }); onSound(); });
+  $('#sound-vol').addEventListener('change', () => onClick('click'));      // a click at the new level
 
   // ---- keyboard controls: one key per action, no key used twice
   function renderKeys(note = '', warn = false) {
@@ -147,6 +158,8 @@ export function createUI({ onStart, onResume, onRestart, onQuit }) {
   menu.addEventListener('click', (e) => {
     const b = e.target.closest('button');
     if (!b) return;
+    if (b.id === 'sound-on') { settings.setSound({ on: !settings.sound.on }); renderSound(); onSound(); }
+    onClick('back' in b.dataset || b.classList.contains('back') ? 'back' : 'click');
     if (b.dataset.key) { listening = b.dataset.key; renderKeys(); }
     else if (b.id === 'keys-reset') { settings.resetKeys(); listening = null; renderKeys('Keys reset to the defaults.'); }
     else if ('settings' in b.dataset) { settingsFrom = current; show('settings'); }
@@ -163,7 +176,7 @@ export function createUI({ onStart, onResume, onRestart, onQuit }) {
   addEventListener('keydown', (e) => {
     if (e.code !== 'Escape' || !current) return;
     const back = { mode: 'title', level: 'mode', rider: 'level', settings: settingsFrom, 'controls-mobile': 'settings', 'controls-web': 'settings' }[current];
-    if (back) { show(back); e.stopImmediatePropagation(); }
+    if (back) { onClick('back'); show(back); e.stopImmediatePropagation(); }
   });
 
   function showResults(res, info) {

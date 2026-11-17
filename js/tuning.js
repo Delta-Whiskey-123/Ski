@@ -78,6 +78,7 @@ export const DEFAULTS = {
     adrSpin: 1.6,
     adrBoost: 2,
     crashLoss: 0.25,      // fraction of the meter lost in a crash
+    readyBeat: 1.1,       // seconds per beat of the "adrenaline ready" pulse: the button's CSS pulse and the sound both use it
   },
   score: {
     spinBase: 100,        // points per half-turn
@@ -97,6 +98,114 @@ export const DEFAULTS = {
     // A rider stat of 1..10 scales its number between these two multipliers.
     low: 0.8,
     high: 1.2,
+  },
+  audio: {
+    // Sound (js/audio.js). Levels are 0..1 gains, pitches in Hz, times in seconds.
+    // ---- volumes
+    master: 0.8,          // overall level before the player's volume setting
+    volBoard: 0.9,        // board on snow, carving, braking, boost, deep snow
+    volWind: 0.6,         // wind
+    volImpacts: 0.9,      // take-off, landing, hitting things, crashes
+    volTricks: 0.7,       // jump charge, spin and flip whooshes, trick blips
+    volMeter: 0.6,        // charged shimmer, ready pulse, adrenaline
+    volVoice: 0.7,        // the rider's voice
+    volUi: 0.5,           // menu clicks, countdown, gates, finish, results
+    maxVoices: 12,        // most one-shots playing at once; the quietest is dropped
+    pauseDuck: 0.12,      // level of one-shots still ringing while paused
+    fadeTime: 0.25,       // seconds the continuous layers take to fade in or out
+    // ---- 1. board on snow: two speed bands
+    boardSplit: 17,       // m/s where "slow cruise" hands over to "fast"
+    boardBlend: 2,        // m/s over which the hand-over happens (small = a clearer change)
+    boardTop: 32,         // m/s at which the fast band is at its loudest and brightest
+    boardSlowLevel: 0.3,  // slow band loudness at the hand-over speed
+    boardSlowCutoff: 520, // slow band: low-pass cutoff (soft hush)
+    boardFastLevel: 0.42, // fast band loudness at the hand-over speed (rises to 1.4x at boardTop)
+    boardFastCutoff: 2600,// fast band: centre brightness (bright roar)
+    boardAdrBright: 1.45, // brightness multiplier while adrenaline runs
+    boardAdrRate: 1.3,    // grain speed multiplier while adrenaline runs (a faster feel)
+    // ---- 2. carving
+    carveLevel: 0.5,      // edge scrape at full lock
+    carveFreq: 3600,      // scrape pitch
+    carveQ: 2.2,          // scrape harshness (filter sharpness)
+    carvePan: 0.35,       // how far the scrape pans toward the carving side (0..1)
+    carveMinSpeed: 9,     // m/s below which carving is nearly silent
+    // ---- 3-5. brake, boost, deep snow
+    brakeLevel: 0.65,     // braking spray
+    brakeFreq: 1700,      // braking spray pitch
+    boostLevel: 0.5,      // whoosh when boost starts
+    boostTime: 0.5,       // whoosh length
+    deepLevel: 0.55,      // muffled powder off the piste
+    deepCutoff: 380,      // powder muffling (low-pass cutoff)
+    deepBoardCut: 0.35,   // board sound kept while in deep snow
+    edgeBumpLevel: 0.8,   // firm bump when the far edge pushes her back
+    edgeBumpGap: 0.7,     // seconds before another bump can sound
+    // ---- 6. wind
+    windLevel: 0.4,       // wind at windTop on the ground
+    windMinSpeed: 10,     // m/s at which wind starts
+    windTop: 38,          // m/s for full ground wind
+    windFreq: 650,        // wind centre pitch
+    windPerMetre: 0.05,   // extra wind per metre above the snow
+    windPerSecond: 0.25,  // extra wind per second of air time
+    windAirMax: 0.6,      // most extra wind the air can add
+    // ---- 7-11. jumps and tricks
+    chargeLevel: 0.12,    // jump charge tone
+    chargeLow: 220,       // charge tone pitch at the start of the hold
+    chargeHigh: 660,      // charge tone pitch at full charge
+    minAir: 0.12,         // seconds: an unpopped natural hop shorter than this makes no take-off or landing sound
+    popLevel: 0.55,       // take-off pop at a tap
+    popChargedGain: 0.7,  // extra pop loudness at full charge
+    clackLevel: 0.7,      // wooden clack off a man-made kicker
+    puffLevel: 0.55,      // snow puff off a natural roller or ledge
+    spinLevel: 0.32,      // whoosh per 180 of spin
+    flipLevel: 0.7,       // deeper whoosh per flip
+    landLevel: 0.75,      // landing thump at landImpactFull
+    landImpactFull: 12,   // m/s of downward speed for a full landing thump
+    landSloppy: 0.25,     // misalignment (0..1) above which a landing sounds scrappy
+    trickLevel: 0.4,      // trick landed blip
+    trickNote: 660,       // blip's first note for the smallest trick
+    trickTopValue: 3000,  // trick value that gets the highest, longest blip
+    // ---- 12-17. meter and adrenaline
+    chargedLevel: 0.35,   // shimmer at 80 %
+    readyLevel: 0.18,     // ready pulse level for the first beats
+    readyBeats: 4,        // beats at full level before the pulse settles
+    readyQuiet: 0.3,      // ready pulse level after that, as a fraction of readyLevel
+    readyNote: 523,       // ready pulse pitch
+    surgeLevel: 0.6,      // adrenaline fired surge
+    surgeTime: 1.1,       // surge length
+    heartLevel: 0.45,     // heartbeat layer while adrenaline runs
+    heartGap: 0.5,        // seconds per heartbeat (0.5 = 120 a minute)
+    warnTime: 1.5,        // seconds before adrenaline ends that the warning starts
+    warnLevel: 0.4,       // warning beeps
+    warnGap: 0.25,        // seconds between warning beeps
+    powerDownLevel: 0.45, // falling power down when adrenaline ends
+    adrBoomLevel: 0.7,    // extra low boom on an adrenaline landing
+    adrSparkleLevel: 0.25,// sparkle on an adrenaline landing
+    // ---- 18-22. hitting things
+    signLevel: 0.75,      // trail post, trail map, caution sign
+    snowmanLevel: 0.8,    // snowman thud (big snowman is deeper)
+    patterLevel: 0.25,    // falling snow chunks
+    treeLevel: 0.9,       // tree thump and crack
+    showerLevel: 0.4,     // snow shower off a tree
+    fenceLevel: 0.65,     // fence slap and rattle
+    tumbleLevel: 0.6,     // each thud of a crash tumble
+    tumbleThuds: 4,       // thuds in a tumble
+    tumbleGap: 0.2,       // seconds between tumble thuds
+    respawnLevel: 0.45,   // soft whump on respawn
+    // ---- 23-27. run flow
+    countLevel: 0.45,     // 3-2-1 beeps
+    countNote: 784,       // 3-2-1 pitch
+    goNote: 1568,         // "go" pitch
+    startLevel: 0.55,     // start gate release
+    gateLevel: 0.4,       // gate passed tick
+    gateMissLevel: 0.35,  // gate missed buzz
+    finishLevel: 0.55,    // finish horn and chime
+    stingLevel: 0.45,     // results stings
+    // ---- 28. voice (each rider's own voice is in js/data/riders.js)
+    voiceBigPop: 0.8,     // jump charge (0..1) that counts as a big pop
+    voiceBigTrick: 600,   // trick value that counts as a big trick
+    // ---- 29. menus
+    clickLevel: 0.35,     // menu button click
+    backLevel: 0.35,      // back button
   },
 };
 

@@ -131,7 +131,7 @@ Rules for placing things:
 
 - Screens: **Title** ("SUMMIT PROTOCOL", Play) → **Level select** (six cards: level 1 playable with its best score; five locked cards reading "Coming soon") → **Rider select** (one rider card with name, tagline, stat bars and a slowly turning model; three empty "Coming soon" slots; equipment line showing the board) → run → **Results** (banked score, best trick, top speed, time, new-record flag; Retry / Levels).
 - **Pause** (Esc or a pause button): Resume, Restart, Settings, Quit. Pausing stops the simulation and the timers.
-- **Settings:** sound on/off and volume, quality (low/medium/high, replacing the `?q=` parameter), speed unit (mph/km/h), control hints on/off, reduced effects.
+- **Settings:** sound on/off and volume (built with milestone 8), quality (low/medium/high, replacing the `?q=` parameter), speed unit (mph/km/h), control hints on/off, reduced effects.
 - Run flow in `main.js` as a small state machine: `menu → countdown (3-2-1) → riding → finished → results`. The finish line (last checkpoint) banks the pot and ends the run.
 - Best score per level saved in settings.
 - The first tap on Play is also where audio gets unlocked (milestone 8 uses it).
@@ -139,16 +139,75 @@ Rules for placing things:
 
 **Check:** full loop from title to results and back, by keyboard and by mouse; settings survive a reload; pause truly freezes time; portrait on a phone-sized touch viewport shows the rotate screen.
 
-## - [ ] 8. Sound
+## - [x] 8. Sound
 
-**Goal:** everything synthesized with the Web Audio API in new `js/audio.js`. One `AudioContext`, unlocked on the Play tap, resumed when the page returns from the background.
+**Rewritten by the owner (2026-11-16); this text replaces the earlier version.** Done before milestone 1, which follows it. **No music**: sound effects only.
 
-- Continuous: board-on-snow noise (filtered noise; louder and brighter with speed, harsher when carving or braking), wind that rises with speed and in the air.
-- One-shots: jump pop, landing thump (scaled by impact), trick landed (rising blip, higher for bigger tricks), gate pass tick, gate miss, checkpoint chime, bank trickle, crash, meter charged (80 %), meter full, adrenaline fire and its running layer.
-- Music: one short original synth loop for menus and a driving one for the run, generated in code (simple sequencer). Keep it optional in settings.
-- `main.js` calls audio from events, never from render code.
+**Goal:** every sound synthesized with the Web Audio API in new `js/audio.js` (no audio files). One `AudioContext` (`latencyHint: 'interactive'`), unlocked on the Play tap, resumed when the page returns from the background, silent while paused (continuous layers fade out, never cut).
 
-**Check:** every listed event makes its sound; nothing plays before the first tap; switching tabs and back resumes sound.
+**Rules**
+
+- `audio.js` is driven by events and state from `main.js` only. Physics, scenery, gates, meter and run code stay pure: if a sound needs information no event carries, add a field to the event, never an audio call inside the logic.
+- Every loudness, pitch, timing and threshold lives in a new `audio` group in `js/tuning.js` with a one-line comment, so it can be tuned in the debug panel. A master volume and one volume per category: board, wind, impacts, tricks, meter, voice, UI.
+- Settings (`js/settings.js`, saved, versioned): sound on/off and a volume slider, on the existing Settings screen (reachable from the title and from pause).
+- Performance: short noise and impact buffers built once at unlock and reused; at most about 12 one-shots at once (drop the quietest); 60 fps on a mid-range phone. Everything pre-built before the first run so the first hit is not late.
+- **Preview first:** all sounds are listed on a preview page (`spikes/sounds.html`) next to their descriptions. The owner listens and approves before any of them is wired into the game or committed.
+
+**Riding** (continuous, crossfaded, never stops while riding)
+
+1. Board on snow: filtered noise, louder and brighter with speed. Two clear speed bands, "slow cruise" (soft low hush) and "fast" (bright roar), whose change can be heard.
+2. Carving left and right: a harsher edge scrape rising with how hard she turns, panned slightly to the side she carves toward.
+3. Braking: a louder scraping spray.
+4. Boosting: a short push/whoosh each time boost starts.
+5. Deep snow off the piste: a muffled, heavier powder sound, and a firm "bump" when the edge push shoves her back.
+6. Wind: rises with speed, swells in the air with height and air time.
+
+**Jumps and tricks**
+
+7. Jump charge: a quiet rising tone while jump is held, topping out at full charge (`jump.chargeTime`).
+8. Take-off: a pop, bigger for a charged pop; a wooden clack off a man-made kicker, a soft snow puff off a natural roller or ledge.
+9. Spin: a whoosh per 180°. Flip: a deeper whoosh per flip.
+10. Landing: thump scaled by `ev.impact`. Clean sounds crisp; sideways or mid-spin sounds scrappy but not punishing.
+11. Trick landed: a rising blip with the call-out, higher and longer for bigger tricks (the trick's value).
+
+**Adrenaline and the meter**
+
+12. Meter charged (80 %): a short shimmer.
+13. Meter full / adrenaline ready: a pulse in time with the button's CSS pulse (one beat per `meter.readyBeat`, 1.1 s, the one value both CSS and audio read). Subtle; full level for the first 4 beats, then a whisper until fired (owner's choice). Stops when fired.
+14. Adrenaline fired: a big rising surge.
+15. Adrenaline running: a heartbeat layer for its 7 s, and a brighter, faster board sound.
+16. Adrenaline running out: a warning in the last 1.5 s, then a falling "power down".
+17. Landing during adrenaline: heavier and more exciting (extra low boom and a sparkle).
+
+**Hitting things**
+
+18. Sign (trail post, trail map, caution): a hard wooden or metal crack, chosen from the scenery type in the `break` event.
+19. Snowman (small, big): a soft crumpy powdery thud, the big one deeper, plus light patters of falling chunks.
+20. Tree: a heavy dull thump, a branch crack, a shower of snow.
+21. Red side fence: a plastic slap and rattle.
+22. Crash tumble: rolling snow thuds while she tumbles, then a soft "whump" on respawn.
+
+Trees, fences and the tumble need milestone 1. Until then the sounds and a `crash` handler with an obstacle type exist and are tested from the console.
+
+**Run flow**
+
+23. Countdown: 3-2-1 beeps and a higher "go", synced to `race.countdownStep`.
+24. Start: a start-gate release sound as she leaves.
+25. Gates: a clean tick when passed, a dull buzz when missed.
+26. Finish: a bright horn/chime at the line; the board sound slows to a stop as she coasts.
+27. Results: a short sting (a few notes) for gold, silver, bronze, and one for a new best.
+
+**Rider voice**
+
+28. A `voice` object on each rider in `js/data/riders.js` (pitch, brightness, how often she reacts), so every rider can sound different with no engine changes. Short formant-style vocal sounds, no words: an effort grunt on a big pop, a whoop on a big trick or adrenaline fire, an "oof" on a crash, a laugh-like breath on breaking a snowman. Freya: bright, upbeat, confident. **Occasional** (owner's choice): about 1 in 3 qualifying moments, at least 6 s apart; adrenaline fire and crashes always react. Never the same reaction twice in a row.
+
+**Menus**
+
+29. Soft clicks for menu buttons, a slightly different sound for back; pause ducks everything.
+
+**Style (owner's choice):** arcade with real-world snow and impacts. Snow, wind and impacts sound physical; meter, tricks, gates and stings are short, punchy game tones.
+
+**Check:** every sound plays at the right moment; nothing plays before the first tap; switching tabs and back resumes cleanly. `summit.audio` on the console object with `test(name)` and `peak()`; a whole run driven with `summit.tick()` reaches the audio with every event. `PROGRESS.md` lists what to listen for on a real phone (iPhone silent switch, volume balance, whether the ready pulse annoys) and any sound that could not be checked.
 
 ## - [ ] 9. Final rider model and animation
 

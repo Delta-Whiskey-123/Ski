@@ -54,10 +54,11 @@ function stepGround(s, dt, inp, terrain, stats, mods, events) {
   s.speed = Math.max(R.minSpeed, s.speed + a * dt);
 
   // jump: hold to crouch, release to pop
-  let pop = 0;
+  let pop = 0, popCharge = 0;
   if (inp.jumpHeld) { s.charging = true; s.charge = Math.min(1, s.charge + dt / T.jump.chargeTime); }
   else if (s.charging) {
     pop = (T.jump.popMin + (T.jump.popMax - T.jump.popMin) * s.charge) * stats.jump * mods.jump;
+    popCharge = s.charge;
     s.charging = false; s.charge = 0;
   }
 
@@ -81,7 +82,8 @@ function stepGround(s, dt, inp, terrain, stats, mods, events) {
     s.y += s.vy * dt;
     s.airTime = 0; s.maxHeight = 0; s.takeoffY = s.y;
     s.spin = 0; s.spinRate = 0; s.flip = 0; s.flipping = false; s.flipDir = 0;
-    events.push({ type: 'takeoff', popped: pop > 0 });
+    // charge: how charged the pop was (0..1); surface: off a man-made kicker or natural snow
+    events.push({ type: 'takeoff', popped: pop > 0, charge: popCharge, surface: terrain.kickerAt(s.x, s.z) ? 'kicker' : 'snow' });
   } else {
     s.y = g; s.groundVy = vyG;
   }
@@ -132,7 +134,9 @@ function stepAir(s, dt, inp, terrain, stats, mods, events) {
     // keep only the leftover part-turn so the model eases back to riding
     s.spin = wrap(s.spin, Math.PI); s.flip = wrap(s.flip, Math.PI * 2);
     s.spinRate = 0; s.flipping = false; s.charge = 0; s.charging = false;
-    events.push({ type: 'land', trick, impact: -s.vy });
+    // sloppy: how far from square she came down (0 clean .. 1 fully sideways or upside down); costs nothing
+    const sloppy = Math.min(1, Math.max(Math.abs(s.spin) / (Math.PI / 2), Math.abs(s.flip) / Math.PI));
+    events.push({ type: 'land', trick, impact: -s.vy, sloppy });
     s.vy = 0;
   }
 }

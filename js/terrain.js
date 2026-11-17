@@ -114,6 +114,13 @@ export function createTerrain(level) {
     return h;
   }
 
+  // Is (x, z) on a man-made kicker (or just past its lip)? Tells a kicker
+  // take-off from a natural one (used for the take-off sound).
+  function kickerAt(x, z) {
+    const list = bins.get(Math.floor(z / BIN)) || [];
+    return list.some((f) => f.type === 'kicker' && z >= f.z && z <= f.z + f.length + 2 && Math.abs(x - f.x) <= f.width / 2 + 0.5);
+  }
+
   function naturalHeightAt(x, z) {
     const out = corridorOut(x, z);
     let h = featureHeight(x, z, false);
@@ -205,7 +212,7 @@ export function createTerrain(level) {
 
   return {
     level, bounds, gates, props, fences, scenery, binSize: BIN,
-    heightAt, naturalHeightAt, corridorOut, nearestCentre, nearestPathId, gradeAt, mainAt, propsBetween, sceneryNear,
+    heightAt, naturalHeightAt, kickerAt, corridorOut, nearestCentre, nearestPathId, gradeAt, mainAt, propsBetween, sceneryNear,
     kickers: level.features.filter((f) => f.type === 'kicker'),
     edgeWidth: () => T.ride.edgeWidth,
   };

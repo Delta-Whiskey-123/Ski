@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sound preview</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  html,body{margin:0;background:#ececef;font-family:system-ui,sans-serif;color:#1b2444;overflow:auto;height:auto;position:static}
+  body{padding-bottom:60px}
+  h1{margin:0;padding:18px 16px 0;font:italic 900 24px system-ui,sans-serif}
+  p.lead{margin:4px 16px 0;opacity:.75;font-size:14px;max-width:900px}
+  .bar{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding:10px 16px;margin-top:10px;background:#1b2444;color:#fff}
+  .bar button{font:700 14px system-ui;padding:8px 14px;border-radius:10px;border:0;background:#ffe14d;color:#1b2444;cursor:pointer}
+  .bar button.off{background:#55608a;color:#fff}
+  .bar label{font-size:13px;display:flex;align-items:center;gap:6px}
+  .peak{width:120px;height:10px;background:#33406e;border-radius:5px;overflow:hidden}
+  .peak i{display:block;height:100%;width:0;background:#4cd964;transition:width .05s}
+  h2.group{margin:22px 16px 6px;font:italic 900 19px system-ui}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin:0 16px}
+  .card{background:#f6f6f8;border-radius:14px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+  .card h3{margin:0 0 3px;font-size:16px}
+  .card h3 b{display:inline-block;min-width:26px;color:#e5246f}
+  .card p{margin:0 0 8px;font-size:13px;opacity:.8}
+  .card .tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;background:#ffe14d;margin-bottom:6px}
+  .card .btns{display:flex;flex-wrap:wrap;gap:6px}
+  .card button{font:600 13px system-ui;padding:7px 11px;border-radius:9px;border:2px solid #1b2444;background:#fff;color:#1b2444;cursor:pointer}
+  .card button:active,.card button.on{background:#1b2444;color:#fff}
+  .card .out{font-size:12px;opacity:.75;margin-top:6px;min-height:1em}
+  .sim{margin:0 16px;background:#fff;border-radius:14px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.08);display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px 18px}
+  .sim label{font-size:13px;display:grid;grid-template-columns:96px 1fr 52px;align-items:center;gap:6px}
+  .sim label output{font-variant-numeric:tabular-nums;text-align:right}
+  .sim .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;grid-column:1/-1}
+  .sim button{font:600 13px system-ui;padding:7px 11px;border-radius:9px;border:2px solid #1b2444;background:#fff;cursor:pointer}
+  .sim button.on{background:#1b2444;color:#fff}
+  .mockadr{display:inline-block;margin:6px 4px 0 10px;vertical-align:middle}
+  .mockadr #btn-adrenaline{display:block}
+  .tune{margin:0 16px;columns:300px;column-gap:20px;background:#fff;border-radius:14px;padding:12px 14px}
+  .tune label{display:grid;grid-template-columns:1fr 80px;gap:6px;font-size:12px;margin:2px 0;break-inside:avoid}
+  .tune label span small{display:block;opacity:.6}
+  .tune label.changed span{color:#e5246f;font-weight:700}
+  .tune input{width:76px}
+  .tune h4{margin:10px 0 2px;font-size:13px;break-after:avoid}
+</style>
+</head>
+<body>
+<h1>SUMMIT PROTOCOL · sound preview</h1>
+<p class="lead">Every sound for milestone 8, built in code by <code>js/audio.js</code>. Nothing here is wired into the game yet. Press <b>Start audio</b> first (browsers only allow sound after a tap). Continuous sounds (1–7, 15) play through the ride simulator: switch <b>Riding</b> on and move the sliders, or press a card's buttons to set it up. Tuning changes below are saved on this device and are the same values the game will use.</p>
+
+<div class="bar">
+  <button id="start">Start audio</button>
+  <label>Volume <input id="vol" type="range" min="0" max="1" step="0.01" value="1"></label>
+  <label><input id="mute" type="checkbox"> Sound off</label>
+  <label>Output <span class="peak"><i id="peak"></i></span></label>
+  <button id="pause" class="off">Pause (duck)</button>
+  <span id="status" style="font-size:12px;opacity:.8">audio not started</span>
+</div>
+
+<h2 class="group">Ride simulator</h2>
+<div class="sim">
+  <div class="row">
+    <button id="ride">Riding: off</button>
+    <button id="hold-brake">Hold to brake</button>
+    <button id="hold-boost">Hold to boost</button>
+    <button id="hold-jump">Hold to charge jump</button>
+    <button id="air">In the air: off</button>
+    <button id="adr">Adrenaline: off</button>
+  </div>
+  <label>Speed <input id="speed" type="range" min="7" max="42" step="0.5" value="14"><output></output></label>
+  <label>Carve <input id="steer" type="range" min="-1" max="1" step="0.02" value="0"><output></output></label>
+  <label>Off piste (m) <input id="out" type="range" min="0" max="11" step="0.1" value="0"><output></output></label>
+  <label>Height (m) <input id="height" type="range" min="0" max="15" step="0.1" value="3"><output></output></label>
+</div>
+
+<div id="cards"></div>
+
+<h2 class="group">Tuning (the <code>audio</code> group of js/tuning.js)</h2>
+<p class="lead" style="margin-bottom:8px">Live: a change is heard on the next sound. Saved on this device; the game's tuning panel shows the same values. <button id="reset-tune">Reset audio values</button></p>
+<div class="tune" id="tune"></div>
+
+<script type="module">
+import { T, DEFAULTS, setTuning } from '../js/tuning.js';
+import { RIDERS } from '../js/data/riders.js';
+import { createAudio } from '../js/audio.js';
+
+const audio = createAudio();
+audio.setRider(RIDERS[0]);
+window.audio = audio;
+const $ = (id) => document.getElementById(id);
+
+// ------------------------------------------------------------ simulated rider
+const sim = {
+  speed: 14, heading: 0, steer: 0, braking: false, boosting: false, out: 0,
+  air: false, airTime: 0, spin: 0, flip: 0, charging: false, charge: 0,
+};
+const info = { phase: 'menu', height: 3, meter: 'idle', adrenalineLeft: 0 };
+let riding = false, airOn = false, adrOn = false;
+let spinAnim = null, flipAnim = null;
+
+function setRiding(on) { riding = on; $('ride').textContent = `Riding: ${on ? 'on' : 'off'}`; $('ride').classList.toggle('on', on); }
+function setAir(on) { airOn = on; $('air').textContent = `In the air: ${on ? 'on' : 'off'}`; $('air').classList.toggle('on', on); if (on) sim.airTime = 0; }
+function slider(id, fn) {
+  const el = $(id), out = el.parentElement.querySelector('output');
+  const apply = () => { out.textContent = (+el.value).toFixed(id === 'steer' ? 2 : 1); fn(+el.value); };
+  el.addEventListener('input', apply); apply();
+  return (v) => { el.value = v; apply(); };
+}
+const setSpeed = slider('speed', (v) => { sim.speed = v; });
+const setSteer = slider('steer', (v) => { sim.steer = v; });
+const setOut = slider('out', (v) => { sim.out = v; });
+const setHeight = slider('height', (v) => { info.height = v; });
+
+function hold(id, on, off) {
+  const b = $(id);
+  const down = (e) => { e.preventDefault(); ensure(); b.classList.add('on'); on(); };
+  const up = () => { if (b.classList.contains('on')) { b.classList.remove('on'); off(); } };
+  b.addEventListener('pointerdown', down); b.addEventListener('pointerup', up); b.addEventListener('pointerleave', up); b.addEventListener('pointercancel', up);
+}
+hold('hold-brake', () => { setRiding(true); sim.braking = true; }, () => { sim.braking = false; });
+hold('hold-boost', () => { setRiding(true); sim.boosting = true; }, () => { sim.boosting = false; });
+hold('hold-jump', () => { setRiding(true); sim.charging = true; sim.charge = 0; }, () => { sim.charging = false; sim.charge = 0; });
+$('ride').onclick = () => { ensure(); setRiding(!riding); };
+$('air').onclick = () => { ensure(); setRiding(true); setAir(!airOn); };
+$('adr').onclick = () => { ensure(); setRiding(true); if (info.meter === 'adrenaline') { info.adrenalineLeft = 0; } else fireAdrenaline(); };
+
+function fireAdrenaline() {
+  setReady(false);
+  info.meter = 'adrenaline'; info.adrenalineLeft = T.meter.adrenalineTime;
+  audio.event({ type: 'adrenaline' });
+}
+function setReady(on) {
+  info.meter = on ? 'full' : info.meter === 'full' ? 'idle' : info.meter;
+  document.querySelector('.mockadr')?.classList.toggle('meter-full', on);
+  document.querySelectorAll('[data-ready]').forEach((b) => b.classList.toggle('on', on));
+}
+
+// ------------------------------------------------------------ audio start / bar
+let started = false;
+function ensure() {
+  if (!started) {
+    audio.unlock(); started = true;
+    $('start').textContent = 'Audio on'; $('start').classList.add('off');
+  } else audio.resume();
+}
+$('start').onclick = ensure;
+$('vol').oninput = (e) => audio.setVolume(+e.target.value);
+$('mute').onchange = (e) => audio.setEnabled(!e.target.checked);
+let paused = false;
+$('pause').onclick = () => { paused = !paused; audio.setPaused(paused); $('pause').textContent = paused ? 'Resume' : 'Pause (duck)'; $('pause').classList.toggle('off', !paused); };
+document.addEventListener('visibilitychange', () => { if (!document.hidden) audio.resume(); });
+
+// ------------------------------------------------------------ the sound list
+// [number, title, the owner's description, buttons [label, action], tag]
+const play = (name, opts) => () => { ensure(); const r = audio.test(name, opts); return r; };
+const ride = (o) => () => { ensure(); setRiding(true); setAir(false); sim.braking = false; sim.boosting = false; if (o.speed != null) setSpeed(o.speed); setSteer(o.steer ?? 0); setOut(o.out ?? 0); };
+const later = (ms, fn) => setTimeout(fn, ms);
+const M1 = 'Needs milestone 1 (crashes) to happen in the game';
+
+function spinDemo(halves) { return () => { ensure(); setRiding(true); setAir(true); setHeight(5); spinAnim = { t: 0, total: halves * Math.PI, dur: 0.28 * halves }; sim.spin = 0; }; }
+function flipDemo(flips) { return () => { ensure(); setRiding(true); setAir(true); setHeight(7); flipAnim = { t: 0, total: flips * Math.PI * 2, dur: 0.84 * flips }; sim.flip = 0; }; }
+function countdown() {
+  ensure(); const s = T.race.countdownStep * 1000;
+  [3, 2, 1, 0].forEach((n, i) => later(i * s, () => audio.event({ type: 'count', n })));
+  later(3 * s + 30, () => audio.event({ type: 'start' }));
+}
+
+const GROUPS = [
+  ['Riding (continuous, through the simulator)', [
+    [1, 'Board on snow', 'Filtered noise whose loudness and brightness rise with speed. Two speed bands you can hear change: "slow cruise" (soft low hush) and "fast" (bright roar). The hand-over is at audio.boardSplit (17 m/s).',
+      [['Slow cruise 12 m/s', ride({ speed: 12 })], ['Fast 24 m/s', ride({ speed: 24 })], ['Top 38 m/s', ride({ speed: 38 })], ['Sweep 10→34', () => { ride({ speed: 10 })(); sweep('speed', 10, 34, 6000); }]]],
+    [2, 'Carving left / right', 'A harsher edge scrape that rises with how hard she turns, panned slightly to the carving side (headphones help).',
+      [['Carve left', ride({ speed: 20, steer: -0.9 })], ['Carve right', ride({ speed: 20, steer: 0.9 })], ['Left↔right', () => { ride({ speed: 20 })(); sweep('steer', -1, 1, 3000, true); }]]],
+    [3, 'Braking', 'A louder scraping spray while the brake is held.',
+      [['Ride, then hold "Hold to brake" above', ride({ speed: 24 })], ['Brake 1.5 s', () => { ride({ speed: 24 })(); sim.braking = true; later(1500, () => { sim.braking = false; }); }]]],
+    [4, 'Boosting', 'A short push/whoosh each time boost starts.',
+      [['Boost', () => { ride({ speed: 16 })(); sim.boosting = true; later(400, () => { sim.boosting = false; }); }], ['Sound only', play('boost')]]],
+    [5, 'Deep snow off the piste', 'A muffled, heavier powder sound; and a firm bump when the far edge pushes her back.',
+      [['Into the powder', () => { ride({ speed: 16 })(); sweep('out', 0, 5, 1500); }], ['Hit the far edge', () => { ride({ speed: 16, out: 6 })(); later(500, () => setOut(9.5)); later(1300, () => setOut(6)); }], ['Bump only', play('edgeBump')]]],
+    [6, 'Wind', 'Rises with speed, and swells in the air with height and air time.',
+      [['Fast on the ground', ride({ speed: 36 })], ['Big air 12 m', () => { ride({ speed: 26 })(); setHeight(12); setAir(true); later(2500, () => setAir(false)); }]]],
+  ]],
+  ['Jumps and tricks', [
+    [7, 'Jump charge', 'A quiet rising tone while jump is held, topping out at full charge (jump.chargeTime, 0.45 s).',
+      [['Hold "Hold to charge jump" above', ride({ speed: 18 })], ['Charge 0.6 s', () => { ride({ speed: 18 })(); sim.charging = true; sim.charge = 0; later(600, () => { sim.charging = false; sim.charge = 0; audio.event({ type: 'takeoff', popped: true, charge: 1, surface: 'snow' }); }); }]]],
+    [8, 'Take-off', 'A pop, bigger for a charged pop. A wooden clack off a man-made kicker; a soft snow puff off a natural roller or ledge.',
+      [['Pop (tap)', play('pop', { charge: 0 })], ['Pop (charged)', play('pop', { charge: 1 })], ['Kicker', play('popKicker', { charge: 0 })], ['Kicker + charged pop', play('popKicker', { charge: 1 })], ['Roller / ledge', play('popNatural', { charge: 0 })]]],
+    [9, 'Spin and flip', 'A whoosh for every 180° turned; a deeper whoosh per flip. Demos turn in the simulated air so the count comes from the rider state, as in the game.',
+      [['360', spinDemo(2)], ['1080', spinDemo(6)], ['Backflip', flipDemo(1)], ['Double flip', flipDemo(2)], ['One 180 whoosh', play('spin')], ['One flip whoosh', play('flip')]]],
+    [10, 'Landing', 'A thump scaled by impact. A clean landing sounds crisp; sideways or mid-spin sounds scrappy but not punishing.',
+      [['Soft (4 m/s)', play('land', { impact: 4 })], ['Normal (9)', play('land', { impact: 9 })], ['Heavy (15)', play('land', { impact: 15 })], ['Scrappy', play('land', { impact: 9, sloppy: 0.5 })]]],
+    [11, 'Trick landed', 'A rising blip with the call-out, higher and longer for bigger tricks (the trick\'s value).',
+      [['180 (100)', play('trick', { value: 100 })], ['540 (330)', play('trick', { value: 330 })], ['Backflip 360 (900)', play('trick', { value: 900 })], ['Double cork 1080 (2600)', play('trick', { value: 2600 })]]],
+  ]],
+  ['Adrenaline and the meter', [
+    [12, 'Meter charged (80 %)', 'A short shimmer.', [['Play', play('charged')]]],
+    [13, 'Adrenaline ready', 'A pulse in time with the button\'s pulse, one beat per meter.readyBeat (1.1 s). Full level for 4 beats, then a whisper until fired. The red button here uses the game\'s own CSS.',
+      [['Start ready', () => { ensure(); setRiding(true); setReady(true); }], ['Stop', () => setReady(false)], ['Fire', () => { ensure(); setRiding(true); fireAdrenaline(); }]], null, true],
+    [14, 'Adrenaline fired', 'A big rising surge.', [['Play', play('surge')]]],
+    [15, 'Adrenaline running', 'A heartbeat under everything for its 7 s, and a brighter, faster board sound. Then 16 follows on its own.',
+      [['Ride and fire (7 s)', () => { ensure(); ride({ speed: 24 })(); fireAdrenaline(); }], ['One heartbeat', play('heartbeat')]]],
+    [16, 'Adrenaline running out', 'Warning beeps in the last 1.5 s, then a falling power down.',
+      [['Last 2 s', () => { ensure(); ride({ speed: 24 })(); info.meter = 'adrenaline'; info.adrenalineLeft = 2; }], ['Power down only', play('powerDown')]]],
+    [17, 'Landing during adrenaline', 'Heavier and more exciting than a normal landing: an extra low boom and a sparkle.',
+      [['Adrenaline landing', play('landAdrenaline', { impact: 10 })], ['Normal, to compare', play('land', { impact: 10 })]]],
+  ]],
+  ['Hitting things', [
+    [18, 'Signs', 'A hard wooden or metal crack, chosen from the scenery type in the break event.',
+      [['Trail post', () => { ensure(); audio.event({ type: 'break', item: { type: 'trailpost' } }); }], ['Trail map', () => { ensure(); audio.event({ type: 'break', item: { type: 'trailmap' } }); }], ['Caution sign', () => { ensure(); audio.event({ type: 'break', item: { type: 'caution' } }); }]]],
+    [19, 'Snowmen', 'A soft, crumpy, powdery thud (the big one deeper) and light patters of falling snow chunks. She may laugh (voice rules apply).',
+      [['Small snowman', () => { ensure(); audio.event({ type: 'break', item: { type: 'snowman-small' } }); }], ['Big snowman', () => { ensure(); audio.event({ type: 'break', item: { type: 'snowman-big' } }); }]]],
+    [20, 'Tree', 'A heavy dull thump, a branch crack and a shower of snow.', [['Tree only', play('tree')], ['Tree crash (with tumble and "oof")', () => { ensure(); audio.event({ type: 'crash', obstacle: 'tree' }); }]], M1],
+    [21, 'Red side fence', 'A plastic slap and rattle.', [['Fence only', play('fence')], ['Fence crash', () => { ensure(); audio.event({ type: 'crash', obstacle: 'fence' }); }]], M1],
+    [22, 'Crash tumble and respawn', 'Rolling snow thuds while she tumbles, then a soft whump on respawn on the piste.',
+      [['Tumble', play('tumble')], ['Respawn whump', play('respawn')], ['Tumble, then respawn after 0.9 s', () => { ensure(); audio.test('tumble'); later(900, () => audio.event({ type: 'respawn' })); }]], M1],
+  ]],
+  ['Run flow', [
+    [23, 'Countdown', '3-2-1 beeps and a higher "go", at race.countdownStep (0.7 s).', [['Countdown', countdown], ['One beep', play('count')], ['Go', play('go')]]],
+    [24, 'Start', 'The start gate release as she leaves.', [['Play', play('start')]]],
+    [25, 'Gates', 'A clean tick when passed, a dull buzz when missed.', [['Passed', play('gate')], ['Missed', play('gateMiss')], ['Three in a row', () => { ensure(); [true, true, false].forEach((p, i) => later(i * 600, () => audio.event({ type: 'gate', passed: p }))); }]]],
+    [26, 'Finish line', 'A bright horn and chime as she crosses; the board sound slows to a stop as she coasts (race.finishCoast, 1.6 s).',
+      [['Finish', play('finish')], ['Ride over the line', () => { ensure(); ride({ speed: 26 })(); later(1200, () => { info.phase = 'finished'; audio.event({ type: 'finish' }); sim.braking = true; }); later(1200 + T.race.finishCoast * 1000 + 200, () => { setRiding(false); sim.braking = false; }); }]]],
+    [27, 'Results stings', 'A few notes for gold, silver, bronze, none, and one for a new best.',
+      [['Gold', play('stingGold')], ['Silver', play('stingSilver')], ['Bronze', play('stingBronze')], ['No medal', play('stingNone')], ['New best', play('stingBest')], ['Gold + new best', () => { ensure(); audio.event({ type: 'results', medal: 'gold', newBest: true }); }]]],
+  ]],
+  ['Rider voice (Freya: bright, upbeat, confident; occasional)', [
+    [28, 'Reactions', 'Formant-style vocal sounds, no words. Each kind has 2-3 variants and never plays the same variant twice running. The buttons below always play; "React as in the game" applies her chattiness (1 in 3, at least 6 s apart, not the same kind twice running).',
+      [['Effort grunt (big pop)', play('voice.grunt')], ['Whoop (big trick / adrenaline)', play('voice.whoop')], ['Oof (crash)', play('voice.oof')], ['Laugh (snowman)', play('voice.laugh')],
+       ['React as in the game: big trick', (b) => { ensure(); const r = audio.react('whoop'); return r ? `she reacted (${r})` : 'she stayed quiet this time'; }],
+       ['… big pop', () => { ensure(); const r = audio.react('grunt'); return r ? `she reacted (${r})` : 'she stayed quiet this time'; }]]],
+  ]],
+  ['Menus', [
+    [29, 'Menu clicks', 'A soft click for buttons, a slightly different sound for back. Pause ducks everything (try the Pause button in the top bar while something plays).',
+      [['Click', () => { ensure(); audio.ui('click'); }], ['Back', () => { ensure(); audio.ui('back'); }], ['Pause during a ride', () => { ensure(); ride({ speed: 26 })(); later(1000, () => $('pause').click()); later(2500, () => $('pause').click()); }]]],
+  ]],
+];
+
+const host = $('cards');
+for (const [title, items] of GROUPS) {
+  const h = document.createElement('h2'); h.className = 'group'; h.textContent = title; host.appendChild(h);
+  const grid = document.createElement('div'); grid.className = 'grid'; host.appendChild(grid);
+  for (const [n, name, desc, btns, tag, mock] of items) {
+    const c = document.createElement('div'); c.className = 'card';
+    c.innerHTML = `${tag ? `<span class="tag">${tag}</span>` : ''}<h3><b>${n}</b>${name}</h3><p>${desc}</p><div class="btns"></div><div class="out"></div>`;
+    const out = c.querySelector('.out');
+    for (const [label, fn] of btns) {
+      const b = document.createElement('button'); b.textContent = label;
+      if (label === 'Start ready') b.dataset.ready = '';
+      b.addEventListener('click', () => { const r = fn(b); out.textContent = typeof r === 'string' && r.includes(' ') ? r : ''; });
+      c.querySelector('.btns').appendChild(b);
+    }
+    if (mock) {
+      const m = document.createElement('span'); m.className = 'mockadr';
+      m.innerHTML = '<button id="btn-adrenaline" aria-label="adrenaline (preview)"></button>';
+      c.querySelector('.btns').appendChild(m);
+    }
+    grid.appendChild(c);
+  }
+}
+// the mock button uses the game CSS selector body.meter-full #btn-adrenaline
+document.documentElement.style.setProperty('--adr-beat', `${T.meter.readyBeat}s`);
+const readyObserver = () => document.body.classList.toggle('meter-full', info.meter === 'full');
+
+// slider sweeps for demos
+function sweep(id, a, b, ms, back = false) {
+  const set = { speed: setSpeed, steer: setSteer, out: setOut }[id];
+  const t0 = performance.now();
+  const stepF = () => {
+    let k = (performance.now() - t0) / ms;
+    if (k >= 1) { set(back ? 0 : b); return; }
+    set(back ? a + (b - a) * (k < 0.5 ? k * 2 : 2 - k * 2) : a + (b - a) * k);
+    requestAnimationFrame(stepF);
+  };
+  stepF();
+}
+
+// ------------------------------------------------------------ frame loop
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  sim.heading = sim.steer * T.ride.maxHeading;
+  if (sim.charging) sim.charge = Math.min(1, sim.charge + dt / T.jump.chargeTime);
+  const wasAir = sim.air;
+  sim.air = airOn || !!spinAnim || !!flipAnim;
+  if (sim.air) sim.airTime += dt; else sim.airTime = 0;
+  if (!sim.air && wasAir) { audio.event({ type: 'land', impact: 9, trick: { name: '' } }); sim.spin = 0; sim.flip = 0; }
+  if (spinAnim) { spinAnim.t += dt; sim.spin = spinAnim.total * Math.min(1, spinAnim.t / spinAnim.dur); if (spinAnim.t >= spinAnim.dur + 0.15) spinAnim = null; }
+  if (flipAnim) { flipAnim.t += dt; sim.flip = -flipAnim.total * Math.min(1, flipAnim.t / flipAnim.dur); if (flipAnim.t >= flipAnim.dur + 0.15) flipAnim = null; }
+  if (info.meter === 'adrenaline') {
+    info.adrenalineLeft = Math.max(0, info.adrenalineLeft - dt);
+    if (info.adrenalineLeft <= 0) info.meter = 'idle';
+  }
+  if (info.phase !== 'finished') info.phase = riding ? 'riding' : 'menu';
+  else if (!riding) info.phase = 'menu';
+  $('adr').textContent = `Adrenaline: ${info.meter === 'adrenaline' ? info.adrenalineLeft.toFixed(1) + ' s' : info.meter === 'full' ? 'ready' : 'off'}`;
+  $('adr').classList.toggle('on', info.meter === 'adrenaline');
+  readyObserver();
+  audio.update(dt, sim, info);
+  const p = audio.peak();
+  $('peak').style.width = `${Math.min(100, p * 100)}%`;
+  $('peak').style.background = p > 0.98 ? '#ff3b30' : '#4cd964';
+  if (started) $('status').textContent = `${audio.ctx.state} · ${audio.playing} one-shots · peak ${p.toFixed(2)}`;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// ------------------------------------------------------------ tuning
+function buildTune() {
+  const host = $('tune'); host.innerHTML = '';
+  const src = document.createElement('div');
+  for (const [key, def] of Object.entries(DEFAULTS.audio)) {
+    const l = document.createElement('label');
+    l.innerHTML = `<span>${key}</span><input type="number" step="${Math.abs(def) < 1 ? 0.01 : Math.abs(def) < 50 ? 0.1 : 10}" value="${T.audio[key]}">`;
+    l.classList.toggle('changed', T.audio[key] !== def);
+    l.querySelector('input').addEventListener('input', (e) => { const v = parseFloat(e.target.value); if (Number.isFinite(v)) { setTuning('audio', key, v); l.classList.toggle('changed', v !== def); } });
+    host.appendChild(l);
+  }
+  const rb = document.createElement('label');
+  rb.innerHTML = `<span>meter.readyBeat <small>shared with the button's CSS pulse</small></span><input type="number" step="0.05" value="${T.meter.readyBeat}">`;
+  rb.querySelector('input').addEventListener('input', (e) => { const v = parseFloat(e.target.value); if (v > 0.2) { setTuning('meter', 'readyBeat', v); document.documentElement.style.setProperty('--adr-beat', `${v}s`); } });
+  host.prepend(rb);
+}
+buildTune();
+$('reset-tune').onclick = () => { for (const k of Object.keys(DEFAULTS.audio)) setTuning('audio', k, DEFAULTS.audio[k]); setTuning('meter', 'readyBeat', DEFAULTS.meter.readyBeat); buildTune(); };
+</script>
+</body>
+</html>
