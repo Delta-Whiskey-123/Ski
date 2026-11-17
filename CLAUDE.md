@@ -125,6 +125,7 @@ Work on the editor happens on the branch `map-editor`. Do not push editor work t
 | `editor/app/actions.js` | Edits as pure functions: map in, new map out. |
 | `editor/app/plan.js` | Draws the 2D plan and hit-tests. Read only. |
 | `editor/app/interact.js` | Mouse and keyboard on the plan. |
+| `editor/app/palette.js` | The strip of buttons that arms the place tool. |
 | `editor/app/panel.js`, `warnings.js` | Properties panel; warning list. |
 | `editor/app/io.js` | Import, export, autosave. |
 | `editor/app/main.js` | Wiring, toolbar, generate dialog. |

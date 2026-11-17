@@ -11,7 +11,7 @@ import { OBJECT_TYPES, objectOutline } from '../core/catalogue.js';
 import { PROFILES } from '../core/predict.js';
 import { rule } from '../core/rules.js';
 import { pathAt, featureSpan } from '../core/geometry.js';
-import { anchor, getItem, sameSelection } from './actions.js';
+import { anchor, getItem, sameSelection, LISTS } from './actions.js';
 
 export const PROFILE_COLOURS = { slow: '#1f9d55', normal: '#2f6fe4', adrenaline: '#d0288a' };
 const C = {
@@ -56,7 +56,15 @@ export function createPlan(canvas) {
   }
 
   // ------------------------------------------------------------ drawing
-  function draw({ map, analysis, selection, highlight = [] }) {
+  function drawTree(p, dot) {
+    const r = Math.max(dot * 0.5, px(p.r || 0.5) * 1.6);
+    ctx.fillStyle = p.small ? C.small : p.type === 'blob' ? C.blob : p.type === 'pine' ? C.pine : '#555';
+    ctx.fillRect(sx(p.x) - r, sy(p.z) - r, r * 2, r * 2);
+  }
+
+  // `ghost` ({ kind, item }, optional) is the thing the place tool would add:
+  // drawn faintly, never part of the map.
+  function draw({ map, analysis, selection, highlight = [], ghost = null }) {
     const { terrain, jumps, warnings } = analysis;
     const top = toWorld(0, 0).z, bottom = toWorld(0, H).z, left = toWorld(0, 0).x, right = toWorld(W, 0).x;
     ctx.fillStyle = C.forest; ctx.fillRect(0, 0, W, H);
@@ -94,9 +102,7 @@ export function createPlan(canvas) {
       const dot = Math.max(1, px(0.9));
       for (const p of terrain.propsBetween(top - 10, bottom + 10)) {
         if (p.x < left - 5 || p.x > right + 5) continue;
-        const r = Math.max(dot * 0.5, px(p.r || 0.5) * 1.6);
-        ctx.fillStyle = p.small ? C.small : p.type === 'blob' ? C.blob : p.type === 'pine' ? C.pine : '#555';
-        ctx.fillRect(sx(p.x) - r, sy(p.z) - r, r * 2, r * 2);
+        drawTree(p, dot);
       }
     }
 
@@ -151,7 +157,7 @@ export function createPlan(canvas) {
     }
 
     // features, to scale
-    map.features.forEach((f) => {
+    const drawFeature = (f) => {
       const [z0, z1] = featureSpan(f);
       if (z1 < top - 5 || z0 > bottom + 5) return;
       const x0 = sx(f.x - f.width / 2), w = px(f.width);
@@ -176,7 +182,8 @@ export function createPlan(canvas) {
         ctx.fillStyle = C.text; ctx.textAlign = 'left';
         ctx.fillText(f.type === 'ledge' ? `ledge ${f.drop} m` : `${f.type} ${f.height} m`, x0 + w + 5, sy(f.type === 'ledge' ? f.z : (z0 + z1) / 2));
       }
-    });
+    };
+    map.features.forEach(drawFeature);
 
     // predicted flights: a line from take-off to touchdown and a bar where she lands, per speed
     if (layers.arcs) {
@@ -217,7 +224,7 @@ export function createPlan(canvas) {
     });
 
     // breakable scenery
-    (map.scenery || []).forEach((s) => {
+    const drawScenery = (s) => {
       const Y = sy(s.z), X = sx(s.x), t = SCENERY_TYPES[s.type];
       if (Y < -10 || Y > H + 10 || !t) return;
       if (t.r != null) {
@@ -229,10 +236,11 @@ export function createPlan(canvas) {
         ctx.fillStyle = s.type === 'caution' ? '#f2c230' : C.sign; ctx.fillRect(X - hw, Y - hd, hw * 2, hd * 2);
         ctx.strokeStyle = '#3a2a1c'; ctx.lineWidth = 1; ctx.strokeRect(X - hw, Y - hd, hw * 2, hd * 2);
       }
-    });
+    };
+    (map.scenery || []).forEach(drawScenery);
 
     // placeholder objects, drawn as plain shapes
-    (map.objects || []).forEach((o, oi) => {
+    const drawObject = (o, chosen) => {
       const t = OBJECT_TYPES[o.type];
       if (!t) return;
       const far = Math.max(o.z, o.z2 ?? o.z), near = Math.min(o.z, o.z2 ?? o.z);
@@ -245,17 +253,19 @@ export function createPlan(canvas) {
       } else if (t.shape === 'line') {
         ctx.strokeStyle = t.colour; ctx.lineWidth = Math.max(2.5, px(t.r * 2));
         ctx.beginPath(); ctx.moveTo(sx(outline[0].x), sy(outline[0].z)); ctx.lineTo(sx(outline[1].x), sy(outline[1].z)); ctx.stroke();
-        if (selection?.kind === 'object' && selection.index === oi) {
+        if (chosen) {
           ctx.fillStyle = '#fff'; ctx.strokeStyle = C.select; ctx.lineWidth = 2;
           for (const p of outline) { ctx.beginPath(); ctx.arc(sx(p.x), sy(p.z), 5, 0, 7); ctx.fill(); ctx.stroke(); }
         }
       } else {
         ctx.beginPath(); outline.forEach((p, i) => (i ? ctx.lineTo(sx(p.x), sy(p.z)) : ctx.moveTo(sx(p.x), sy(p.z)))); ctx.closePath();
-        ctx.globalAlpha = 0.8; ctx.fill(); ctx.globalAlpha = 1; ctx.stroke();
+        const alpha = ctx.globalAlpha;
+        ctx.globalAlpha = alpha * 0.8; ctx.fill(); ctx.globalAlpha = alpha; ctx.stroke();
         if (px(t.w) < 6) { ctx.beginPath(); ctx.arc(sx(o.x), sy(o.z), 3, 0, 7); ctx.fill(); ctx.stroke(); }
       }
       if (view.scale > 1.4) { ctx.fillStyle = C.text; ctx.textAlign = 'left'; ctx.fillText(t.name, sx(o.x) + Math.max(6, px(t.shape === 'rect' ? t.w / 2 : t.r)) + 3, sy(o.z)); }
-    });
+    };
+    (map.objects || []).forEach((o, oi) => drawObject(o, selection?.kind === 'object' && selection.index === oi));
 
     // start position
     {
@@ -278,10 +288,10 @@ export function createPlan(canvas) {
     }
 
     // selection ring, and the items of the warning last clicked
-    const ring = (sel, colour, dash) => {
-      const a = anchor(map, sel);
+    const ring = (sel, colour, dash, from = map) => {
+      const a = anchor(from, sel);
       if (!a) return;
-      const it = getItem(map, sel);
+      const it = getItem(from, sel);
       ctx.strokeStyle = colour; ctx.lineWidth = 2; ctx.setLineDash(dash);
       if (sel.kind === 'feature') {
         const [z0, z1] = featureSpan(it);
@@ -293,6 +303,18 @@ export function createPlan(canvas) {
     };
     for (const h of highlight) if (!sameSelection(h, selection)) ring(h, '#d7263d', [4, 3]);
     if (selection && selection.kind !== 'path') ring(selection, C.select, []);
+
+    // the place tool's ghost: the new thing drawn faintly, with a dashed ring
+    if (ghost) {
+      const { kind, item } = ghost;
+      ctx.save(); ctx.globalAlpha = 0.45;
+      if (kind === 'feature') drawFeature(item);
+      else if (kind === 'scenery') drawScenery(item);
+      else if (kind === 'object') drawObject(item, false);
+      else if (kind === 'prop') drawTree(item, Math.max(1, px(0.9)));
+      ctx.restore();
+      ring({ kind, index: 0 }, C.select, [5, 4], { [LISTS[kind]]: [item] });
+    }
 
     // distance ruler down the left edge, and a scale bar
     ctx.fillStyle = 'rgba(255,255,255,.82)'; ctx.fillRect(0, 0, 44, H);

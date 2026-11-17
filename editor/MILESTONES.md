@@ -18,7 +18,7 @@ Rules for every milestone:
 
 ---
 
-## - [ ] E1. Place anything from a palette
+## - [x] E1. Place anything from a palette
 
 **Goal:** add new things to the map by picking a type and clicking the plan.
 

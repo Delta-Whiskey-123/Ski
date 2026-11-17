@@ -7,24 +7,48 @@
 //   drag a thing               move it (snaps to 0.5 m; hold Alt for no snap)
 //   Delete                     remove the selected feature, gate, scenery, object or prop
 //   Ctrl+Z / Ctrl+Y            undo / redo (Ctrl+Shift+Z also redoes)
-//   Escape                     abandon a drag, else deselect
+//   Escape                     abandon a drag, else disarm the place tool, else deselect
 //   F                          fit the whole course in view
+//
+// The place tool (armed from the palette with setTool({ kind, type })):
+//   click                      add the thing there and select it; the tool disarms
+//   Shift+click                add it and keep the tool armed for another
+//   Escape                     disarm (so does picking the armed button again)
 
-import { moveItem, removeItem, canRemove, anchor, describe } from './actions.js';
+import { moveItem, removeItem, canRemove, anchor, describe, newItem, addItem } from './actions.js';
 
 const SNAP = 0.5, DRAG_START = 3;
 
-export function attachInteraction(canvas, plan, store, { redraw, onCursor }) {
+export function attachInteraction(canvas, plan, store, { redraw, onCursor, onTool }) {
   let drag = null;        // { sel, grab: {x,z} offset from the handle, startX, startY, moved }
   let pan = null;         // { x, y, cx, cz, moved }
+  let tool = null;        // the armed place tool: { kind, type } | null
+  let pointer = null;     // world point under the mouse while it is over the plan: { x, z, free }
   const snap = (v, free) => (free ? Math.round(v * 100) / 100 : Math.round(v / SNAP) * SNAP);
   const point = (e) => { const r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
   const state = () => ({ map: store.map, analysis: store.analysis, selection: store.selection });
+
+  function setTool(next) {
+    tool = next ? { kind: next.kind, type: next.type } : null;
+    onTool?.(tool);
+    redraw();
+  }
+  // The thing the armed tool would add at the pointer (also drawn as the ghost).
+  const placing = () => (tool && pointer ? newItem(store.map, tool.kind, tool.type, snap(pointer.x, pointer.free), snap(pointer.z, pointer.free)) : null);
 
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
   canvas.addEventListener('mousedown', (e) => {
     const [mx, my] = point(e);
+    if (tool && e.button === 0) {
+      const w = plan.toWorld(mx, my);
+      pointer = { x: w.x, z: w.z, free: e.altKey };
+      const added = addItem(store.map, tool.kind, placing());
+      if (store.apply(`Add ${describe(added.map, added.selection).toLowerCase()}`, added.map)) store.select(added.selection);
+      if (!e.shiftKey) setTool(null);
+      e.preventDefault();
+      return;
+    }
     const hit = e.button === 0 ? plan.pick(state(), mx, my) : null;
     if (hit) {
       store.select(hit);
@@ -40,6 +64,7 @@ export function attachInteraction(canvas, plan, store, { redraw, onCursor }) {
     const [mx, my] = point(e);
     const w = plan.toWorld(mx, my);
     onCursor?.(w, e.target === canvas);
+    if (tool) { pointer = e.target === canvas ? { x: w.x, z: w.z, free: e.altKey } : null; redraw(); }
     if (drag) {
       if (!drag.moved && Math.hypot(mx - drag.startX, my - drag.startY) < DRAG_START) return;
       drag.moved = true;
@@ -82,7 +107,14 @@ export function attachInteraction(canvas, plan, store, { redraw, onCursor }) {
       store.apply(label, (m) => removeItem(m, sel));
       e.preventDefault();
     } else if (key === 'escape') {
-      if (drag) { drag = null; store.cancel(); } else store.select(null);
+      if (drag) { drag = null; store.cancel(); } else if (tool) setTool(null); else store.select(null);
     } else if (key === 'f' && !ctrl) { plan.fit(store.map, store.analysis); redraw(); }
   });
+
+  return {
+    setTool,
+    get tool() { return tool; },
+    // what the plan draws faintly under the pointer: { kind, item } | null
+    get ghost() { const item = placing(); return item ? { kind: tool.kind, item } : null; },
+  };
 }

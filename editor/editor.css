@@ -2,7 +2,7 @@
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body {
-  display: grid; grid-template-rows: auto 1fr auto;
+  display: grid; grid-template-rows: auto auto 1fr auto;
   font: 13px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #22303c; background: #eef2f6;
 }
 body.dropping::after {
@@ -24,6 +24,13 @@ button.danger { margin-top: 10px; border-color: #d7263d; color: #b01b30; }
 .legend i, .swatch { display: inline-block; width: 10px; height: 10px; margin: 0 3px 0 8px; border-radius: 2px; vertical-align: -1px; }
 .swatch { margin-left: 0; }
 
+#palette { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; padding: 4px 10px; background: #f7f9fb; border-bottom: 1px solid #cfd8e1; }
+#palette .group { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 3px; }
+#palette b { margin-right: 3px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: #52626f; }
+#palette button { padding: 2px 7px; font-size: 12px; }
+#palette button.armed { background: #ff8a00; border-color: #c96a00; color: #fff; }
+#plan.placing { cursor: copy; }
+
 main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; min-height: 0; overflow: hidden; }
 #plan { width: 100%; height: 100%; min-height: 0; display: block; cursor: crosshair; background: #dbe5ee; }
 aside { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; border-left: 1px solid #cfd8e1; background: #fff; }
@@ -39,8 +46,9 @@ h3 { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; letter-spac
 .field input:disabled { background: #f0f3f6; color: #6b7a87; }
 .fields.row { grid-template-columns: 1fr 1fr; margin-bottom: 4px; }
 .fields.row .field { grid-template-columns: auto 70px; }
-.pair { display: flex; gap: 4px; }
+.pair { display: flex; align-items: center; gap: 4px; }
 .pair input { min-width: 0; }
+.pair .deg { flex: none; width: 46px; text-align: right; color: #52626f; font-variant-numeric: tabular-nums; }
 .note { margin: 8px 0 0; color: #52626f; font-size: 12px; }
 .warn { margin: 6px 0 0; padding: 4px 8px; border-left: 3px solid #f5a623; background: #fff7e8; font-size: 12px; }
 .warn.error { border-color: #d7263d; background: #fdecee; }

@@ -56,6 +56,11 @@ export function createPanel(root, store) {
       input = el('input', { id, value: JSON.stringify(value), disabled: true, title: 'Kept as it is; not editable here' });
     }
     input.dataset.key = id;
+    if (key === 'rot') {
+      // a second read-out in degrees beside the radians
+      const deg = el('output', { className: 'deg', textContent: Number.isFinite(value) ? `${(value * 180 / Math.PI).toFixed(1)}°` : '' });
+      return el('label', { className: 'field' }, el('span', { textContent: LABELS[key] || key }), el('span', { className: 'pair' }, input, deg));
+    }
     return el('label', { className: 'field' }, el('span', { textContent: LABELS[key] || key }), input);
   }
 

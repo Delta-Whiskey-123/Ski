@@ -14,6 +14,18 @@ import { nearestPath, featureSpan } from '../core/geometry.js';
 
 export const LISTS = { feature: 'features', gate: 'gates', scenery: 'scenery', object: 'objects', prop: 'props', grade: 'grades' };
 const NODE_GAP = 5;      // a piste point stays at least this far (m) from its neighbours in z
+const FEATURE_SNAP = 3;  // a new feature placed this close (m) to a piste's centre line goes onto it
+
+// Defaults for a new item placed from the palette: per feature type, and per
+// kind for the rest (an object also gets `rot` or a far end from its shape).
+export const NEW_ITEM = {
+  roller: { width: 20, length: 18, height: 1.2 },
+  kicker: { width: 10, length: 7, height: 2 },
+  ledge: { width: 16, drop: 4.5, approach: 46, run: 2.5, lip: 0 },
+  scenery: {},
+  object: {},
+  prop: { s: 1, r: 0.5 },
+};
 
 export function getItem(map, sel) {
   if (!sel) return null;
@@ -67,6 +79,33 @@ export function moveItem(map, sel, x, z) {
   }
   if (sel.kind === 'grade') return updateItem(map, sel, (g) => { g.z = z; });
   return updateItem(map, sel, (c) => { c.x = x; c.z = z; });
+}
+
+// A new item of this kind and type, placed at (x, z), with its defaults.
+// The palette's place tool shows this as the ghost and adds the same thing.
+export function newItem(map, kind, type, x, z) {
+  if (kind === 'feature') {
+    const near = nearestPath(map, x, z);
+    if (near && Math.abs(x - near.x) <= FEATURE_SNAP) x = near.x;
+    return { type, x, z, ...NEW_ITEM[type] };
+  }
+  const item = { type, x, z, ...NEW_ITEM[kind] };
+  if (kind === 'object') {
+    const shape = OBJECT_TYPES[type]?.shape;
+    if (shape === 'rect') item.rot = 0;
+    if (shape === 'line') { item.x2 = x; item.z2 = z + 20; }
+  }
+  return item;
+}
+
+// Add an item to its list: { map, selection } (the selection names the new item).
+// Features stay sorted by z, so a new one goes in at its place; the rest go last.
+export function addItem(map, kind, item) {
+  const key = LISTS[kind], list = (map[key] || []).slice();
+  let index = list.length;
+  if (kind === 'feature') { index = list.findIndex((f) => f.z > item.z); if (index < 0) index = list.length; }
+  list.splice(index, 0, item);
+  return { map: { ...map, [key]: list }, selection: { kind, index } };
 }
 
 // Set one field (value undefined removes the field).

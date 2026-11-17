@@ -9,6 +9,7 @@ import { createStore } from './store.js';
 import { createPlan } from './plan.js';
 import { attachInteraction } from './interact.js';
 import { createPanel } from './panel.js';
+import { createPalette } from './palette.js';
 import { createWarningList } from './warnings.js';
 import { readAutosave, writeAutosave, exportMap, exportLevel, attachImport } from './io.js';
 import { anchor } from './actions.js';
@@ -34,7 +35,7 @@ function redraw() {
   queued = true;
   requestAnimationFrame(() => {
     queued = false;
-    plan.draw({ map: store.map, analysis: store.analysis, selection: store.selection, highlight });
+    plan.draw({ map: store.map, analysis: store.analysis, selection: store.selection, highlight, ghost: interact.ghost });
     $('zoom').textContent = `${plan.view.scale.toFixed(2)} px/m`;
   });
 }
@@ -68,10 +69,17 @@ store.subscribe((reason, detail) => {
   redraw();
 });
 
-attachInteraction($('plan'), plan, store, {
+let palette = null;
+const interact = attachInteraction($('plan'), plan, store, {
   redraw,
   onCursor: (w, over) => { $('cursor').textContent = over ? `x ${w.x.toFixed(1)}  z ${w.z.toFixed(1)}` : ''; },
+  onTool(tool) {
+    palette?.update(tool);
+    $('plan').classList.toggle('placing', !!tool);
+    if (tool) status(`Click the plan to place a ${palette.label(tool.kind, tool.type).toLowerCase()}. Shift+click to place more; Escape to stop.`);
+  },
 });
+palette = createPalette($('palette'), interact);
 
 // ---- toolbar
 $('undo').addEventListener('click', () => store.undo());
@@ -143,4 +151,4 @@ new ResizeObserver(() => {
 start();
 
 // For poking from the console, as the game does with window.summit.
-window.editor = { store, plan, generateMap };
+window.editor = { store, plan, interact, generateMap };

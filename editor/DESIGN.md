@@ -69,7 +69,8 @@ Runs unchanged in Chrome and in Node. **Must never** touch the DOM, `window`, `l
 | `store.js` | The working map, selection, undo and redo. **The only place the map changes.** After every change it re-runs `analyse()` and tells its listeners. | Draw. Read the mouse. |
 | `actions.js` | Named edits (move a node, move a gate, set a field...) as pure functions `map -> new map`. | Mutate the map it is given. |
 | `plan.js` | Drawing the 2D plan on a canvas, and hit-testing (what is under the mouse). | Change the map or the selection. |
-| `interact.js` | Mouse and keyboard on the plan: pan, zoom, select, drag. Turns gestures into store calls. | Draw. Edit the map directly. |
+| `interact.js` | Mouse and keyboard on the plan: pan, zoom, select, drag, and the place tool (`setTool()`, `ghost`). Turns gestures into store calls. | Draw. Edit the map directly. |
+| `palette.js` | The palette strip: one button per placeable type, built from the type tables. Arms the place tool through `interact.setTool()`. | Hold tool state. Edit the map. |
 | `panel.js` | The properties panel for the selected item, and the jump report for a selected feature. | Edit the map directly (it calls the store). |
 | `warnings.js` | The warning list; a click moves the view to the problem. | Compute rules. |
 | `io.js` | Import (file picker, drag and drop), export (download), autosave in `localStorage` under `summit.editor.map.v1`. | Validate by itself (it calls `format.js`). |

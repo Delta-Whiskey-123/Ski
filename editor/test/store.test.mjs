@@ -8,7 +8,11 @@ import level1 from '../../js/data/levels/level1.js';
 import { levelToMap } from '../core/convert.js';
 import { validateMap, serializeMap } from '../core/format.js';
 import { createStore } from '../app/store.js';
-import { moveItem, setField, removeItem, updateItem, getItem, canRemove } from '../app/actions.js';
+import { moveItem, setField, removeItem, updateItem, getItem, canRemove, newItem, addItem, NEW_ITEM } from '../app/actions.js';
+import { SCENERY_TYPES } from '../../js/data/scenery.js';
+import { OBJECT_TYPES } from '../core/catalogue.js';
+import { mapToLevel } from '../core/convert.js';
+import { pathAt } from '../core/geometry.js';
 
 const fresh = () => levelToMap(level1);
 const freeze = (v) => { if (v && typeof v === 'object' && !Object.isFrozen(v)) { Object.freeze(v); Object.values(v).forEach(freeze); } return v; };
@@ -142,4 +146,66 @@ test('store: the selection is dropped when its item no longer exists', () => {
   assert.equal(store.selection, null);
   store.select({ kind: 'gate', index: 999 });
   assert.equal(store.selection, null);
+});
+
+test('addItem: every palette type makes a valid map with the new item selected', () => {
+  const map = freeze(fresh()), text = serializeMap(map);
+  const all = [
+    ...['roller', 'kicker', 'ledge'].map((t) => ['feature', t]),
+    ...Object.keys(SCENERY_TYPES).map((t) => ['scenery', t]),
+    ...Object.keys(OBJECT_TYPES).map((t) => ['object', t]),
+    ['prop', 'pine'], ['prop', 'blob'],
+  ];
+  for (const [kind, type] of all) {
+    const item = newItem(map, kind, type, 60, 500);
+    const { map: next, selection } = addItem(map, kind, item);
+    assert.deepEqual(validateMap(next), [], `${kind} ${type}`);
+    assert.equal(selection.kind, kind);
+    assert.equal(getItem(next, selection), item, `${kind} ${type} is selected`);
+    assert.equal(next[{ feature: 'features', scenery: 'scenery', object: 'objects', prop: 'props' }[kind]].length,
+      (map[{ feature: 'features', scenery: 'scenery', object: 'objects', prop: 'props' }[kind]] || []).length + 1);
+  }
+  assert.equal(serializeMap(map), text, 'the original map is untouched');
+});
+
+test('newItem: defaults from NEW_ITEM, rotation for rect objects, a far end for lines', () => {
+  const map = fresh();
+  assert.deepEqual(newItem(map, 'feature', 'kicker', 80, 300), { type: 'kicker', x: 80, z: 300, ...NEW_ITEM.kicker });
+  assert.deepEqual(newItem(map, 'feature', 'ledge', 80, 300), { type: 'ledge', x: 80, z: 300, width: 16, drop: 4.5, approach: 46, run: 2.5, lip: 0 });
+  assert.deepEqual(newItem(map, 'scenery', 'caution', 3, 40), { type: 'caution', x: 3, z: 40 });
+  assert.deepEqual(newItem(map, 'object', 'hut', 60, 200), { type: 'hut', x: 60, z: 200, rot: 0 });
+  assert.deepEqual(newItem(map, 'object', 'rock', 60, 200), { type: 'rock', x: 60, z: 200 });
+  assert.deepEqual(newItem(map, 'object', 'fence', 60, 200), { type: 'fence', x: 60, z: 200, x2: 60, z2: 220 });
+  assert.deepEqual(newItem(map, 'prop', 'pine', 60, 200), { type: 'pine', x: 60, z: 200, s: 1, r: 0.5 });
+});
+
+test('newItem: a feature within 3 m of a piste centre snaps onto it', () => {
+  const map = fresh(), z = 300, mid = pathAt(map.paths[0], z).x;           // the game's own piste centre
+  const at = (x) => newItem(map, 'feature', 'roller', x, z).x;
+  assert.equal(at(mid + 2.5), mid);
+  assert.equal(at(mid - 3), mid);
+  assert.equal(at(mid + 3.5), mid + 3.5, 'further than 3 m stays where clicked');
+  assert.equal(newItem(map, 'object', 'rock', mid + 1, z).x, mid + 1, 'only features snap');
+});
+
+test('addItem: features stay sorted by z', () => {
+  const map = fresh();
+  const { map: next, selection } = addItem(map, 'feature', newItem(map, 'feature', 'kicker', 0, 300));
+  const zs = next.features.map((f) => f.z);
+  assert.deepEqual(zs, zs.slice().sort((a, b) => a - b));
+  assert.equal(next.features[selection.index].z, 300);
+  assert.equal(addItem(map, 'feature', newItem(map, 'feature', 'kicker', 0, -10)).selection.index, 0);
+  assert.equal(addItem(map, 'feature', newItem(map, 'feature', 'kicker', 0, 1e4)).selection.index, map.features.length);
+});
+
+test('addItem through the store: one undo step, and objects stay out of the game\'s props', () => {
+  const store = createStore(fresh()), a = store.map;
+  const added = addItem(a, 'object', newItem(a, 'object', 'hut', 0, 300));
+  store.apply('Add hut', added.map);
+  store.select(added.selection);
+  assert.equal(getItem(store.map, store.selection).type, 'hut');
+  assert.ok(store.analysis.warnings.some((w) => w.rule === 'object-clear-of-piste'), 'a hut on the piste is flagged');
+  assert.ok(!(mapToLevel(store.map).props || []).some((p) => p.type === 'hut'));
+  store.undo();
+  assert.equal(store.map, a);
 });

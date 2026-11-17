@@ -40,6 +40,25 @@ A desktop tool for designing courses, in `editor/`. Not part of the shipped game
 - **Editor page** `editor/index.html`: plan to scale with pan and zoom; pistes, features, gates, scenery, objects, forest and fences; select and drag piste points, features, gates, scenery, objects and the start; properties panel; predicted flights on the plan and as a side view; live warning list that jumps to the problem; generate dialog; import (file picker and drag and drop); export map and level module; undo and redo; autosave; Delete key.
 - **38 automated tests** (`node --test "editor/test/*.test.mjs"`).
 
+**Done (E1, place anything from a palette, 2026-11-17):**
+
+- A **palette** strip under the toolbar (`editor/app/palette.js`) with one button per placeable thing, in four groups: Features (roller, kicker, ledge), Scenery (every type in `js/data/scenery.js`), Objects (every type in `editor/core/catalogue.js`) and Trees (pine, round tree). The scenery and object buttons are built from those tables, so a new type appears with no editor change.
+- Picking a button arms a **place tool** (kept in `interact.js`). A faint copy of the thing follows the pointer with a dashed ring; a click adds it and selects it; Shift+click keeps the tool armed for another; Escape, or clicking the lit button again, stops. The status bar says what is armed.
+- New edits in `editor/app/actions.js`: `newItem()` (a new item with its defaults from the `NEW_ITEM` table; a new feature dropped within 3 m of a piste centre goes onto the centre) and `addItem()` (adds it and returns the selection; features are inserted in `z` order). The ghost and the real placement use the same `newItem()`, so what you see is what you get.
+- The plan's per-thing drawing was split into small helpers inside `plan.js` so the ghost is drawn by exactly the same code as the real thing. Nothing else in the drawing changed.
+- The properties panel shows a turned object's angle in degrees beside the radians.
+- 5 new tests (43 in all).
+
+**Verified for E1, and how:**
+
+- `node --test "editor/test/*.test.mjs"`: 43 pass.
+- In headless Chrome (1500x900) with real mouse clicks and key presses (Playwright), starting from level 1: every one of the 18 palette buttons armed, showed its ghost, placed the thing where clicked, selected it and showed its fields; each was then dragged 6 m, undone twice (back to before the drag, then back to before it was placed) and redone. Shift+click placed two snowmen with the tool still armed; Escape and re-clicking the lit button both disarmed. A kicker placed 20 m above a gate brought up `gate-near-jump` at once; a hut dropped on the main piste brought up `object-clear-of-piste`. Turning the hut to 1.5708 radians showed 90.0°. Screenshots looked at (ghost, hut panel, whole course). Placed objects did not appear in `mapToLevel(map).props`.
+- Export then re-import gave the identical map, on level 1 with all 18 types added and on a freshly generated map (seed 4242) with a ledge, fence run and banner added. Editor console clean throughout.
+- Command line: a freshly generated map (seed 4242, 2600 m, 3 branches) validates PASS. Level 1 validates with 0 errors and the same 6 known warnings as before (see "Known limits of the editor"); E1 did not change it.
+- The game page (http://localhost:8130/) loads with no errors. Headless Chrome prints four "GL Driver Message ... GPU stall due to ReadPixels" performance notices there; they come from the browser's software graphics, and no game file was changed in E1.
+
+**Not verified for E1:** the clicks were real mouse events in headless Chrome, not a person at a desktop; how the ghost feels to use by hand is for the owner to judge.
+
 **Changes made to game files (none alters how the game plays):**
 
 - `js/terrain.js`: `pathAt()` moved out of `createTerrain()` and exported (same code). The gate generator moved into exported `generateGates(level)` with a helper `jumpZone(feature)`; `createTerrain()` calls it. If a level has its own `gates` list, `createTerrain()` uses it instead of generating; level 1 has none, so it generates as before.
@@ -68,14 +87,15 @@ A desktop tool for designing courses, in `editor/`. Not part of the shipped game
 - Generated branches each get their own stretch of mountain: never two side by side, no cross-links, no branch off a branch. Hand editing of pistes arrives with E3.
 - Prediction rides the centre line of a feature, straight, at a held speed. It does not try angled approaches or jump pops, and it does not check for tall objects under the flight path, only where she lands.
 - Generated gates keep the game generator's exact positions, so their `x` values have many decimals in the file.
-- New things can only be added by generating; placing them by hand is E1. Pistes can be reshaped but not added or deleted (E3).
+- Pistes can be reshaped but not added or deleted (E3). Gates cannot be added from the palette yet (E2).
+- A feature dragged past another is not re-sorted (only a newly placed one goes in at its place); the game's terrain looks features up by position, so the order does not change how a course plays.
 - This track's first session was run from another project's folder (the app would not attach the ski folder), using full paths. Nothing in the game or the editor depends on that.
 
 ## Next
 
 Game: milestone 1 in `MILESTONES.md` (crashes and obstacles).
 
-Map editor: E1 in `editor/MILESTONES.md` (place anything from a palette).
+Map editor: E2 in `editor/MILESTONES.md` (gates: add, flip, regenerate).
 
 ## Waiting on the owner
 
